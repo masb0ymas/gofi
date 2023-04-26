@@ -15,7 +15,7 @@ import (
 /*
 Initialize Routes
 */
-func InitializeRoutes(app *fiber.App) {
+func Initialize(app *fiber.App) {
 	// index route
 	app.Get("/", func(c *fiber.Ctx) error {
 

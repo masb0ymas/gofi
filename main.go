@@ -39,7 +39,7 @@ func main() {
 	config.ConnectDB()
 
 	// initial app route
-	routes.InitializeRoutes(app)
+	routes.Initialize(app)
 
 	// listening app
 	log.Fatal(app.Listen(":" + port))
