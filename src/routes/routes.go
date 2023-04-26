@@ -52,6 +52,9 @@ func InitializeRoutes(app *fiber.App) {
 		return c.Status(http.StatusForbidden).JSON(fiber.NewError(http.StatusForbidden))
 	})
 
+	// initial route v1
+	RouteV1(app)
+
 	app.Get("*", func(c *fiber.Ctx) error {
 		return c.Status(http.StatusNotFound).JSON(fiber.NewError(http.StatusNotFound, "Sorry, HTTP resource you are looking for was not found."))
 	})
