@@ -43,8 +43,6 @@ func (s *RoleService) FindAll(c *fiber.Ctx) ([]entities.RoleEntity, error) {
 	sqlf.SetDialect(sqlf.PostgreSQL)
 	ctx := context.Background()
 
-	var record entities.RoleEntity
-
 	// query builder
 	query := sqlf.Select("*").From("role").
 		OrderBy("created_at DESC").
@@ -55,8 +53,10 @@ func (s *RoleService) FindAll(c *fiber.Ctx) ([]entities.RoleEntity, error) {
 	fmt.Println(queryLog)
 
 	err := query.QueryAndClose(ctx, s.db, func(rows *sql.Rows) {
-		// Scan Record Rows
-		rows.Scan(&record.Id, &record.CreatedAt, &record.UpdatedAt, &record.DeletedAt.Time, &record.Name)
+		var record entities.RoleEntity
+
+		// Scan Record
+		rows.Scan(&record.Id, &record.CreatedAt, &record.UpdatedAt, &record.DeletedAt, &record.Name)
 		data = append(data, record)
 	})
 
