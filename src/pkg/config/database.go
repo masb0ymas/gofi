@@ -32,6 +32,7 @@ func ConnectDB() {
 	if err != nil {
 		logErrMessage := helpers.PrintLog("Sqlx", "Error database port", helpers.Options{Label: "error"})
 		fmt.Println(logErrMessage)
+		panic(err)
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", DB_HOST, port, DB_USERNAME, DB_PASSWORD, DB_DATABASE, DB_SSL)
@@ -46,6 +47,15 @@ func ConnectDB() {
 	if err != nil {
 		logErrMessage := helpers.PrintLog("Sqlx", "Failed to connect database", helpers.Options{Label: "error"})
 		fmt.Println(logErrMessage)
+		panic(err)
+	}
+
+	err = db.Ping()
+
+	if err != nil {
+		logErrMessage := helpers.PrintLog("Sqlx", "Failed to PING Connection Database", helpers.Options{Label: "error"})
+		fmt.Println(logErrMessage)
+		panic(err)
 	}
 
 	// Run Migrate & Seeder
@@ -97,6 +107,7 @@ func roleSeeder() {
 
 	if err != nil {
 		fmt.Println(err)
+		panic(err)
 	}
 
 	if len(role) == 0 {
@@ -108,6 +119,7 @@ func roleSeeder() {
 	if err != nil {
 		logErrMessage := helpers.PrintLog("Sqlx", "Failed to run role seeder", helpers.Options{Label: "error"})
 		fmt.Println(logErrMessage, err)
+		panic(err)
 	}
 
 	logMessage := helpers.PrintLog("Sqlx", "Role Seeds")
@@ -123,6 +135,7 @@ func userSeeder() {
 
 	if err != nil {
 		fmt.Println(err)
+		panic(err)
 	}
 
 	if len(data) == 0 {
@@ -134,6 +147,7 @@ func userSeeder() {
 	if err != nil {
 		logErrMessage := helpers.PrintLog("Sqlx", "Failed to run user seeder", helpers.Options{Label: "error"})
 		fmt.Println(logErrMessage, err)
+		panic(err)
 	}
 
 	logMessage := helpers.PrintLog("Sqlx", "User Seeds")
