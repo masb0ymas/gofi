@@ -22,13 +22,24 @@ type Sorted struct {
 	Order string
 }
 
-func QueryBuilder(table string, c *fiber.Ctx) (*sqlf.Stmt, int) {
+type QueryBuilderOptions struct {
+	Limit int
+}
+
+/*
+Query Builder with Sqlf
+*/
+func QueryBuilder(table string, c *fiber.Ctx, options ...QueryBuilderOptions) (*sqlf.Stmt, int) {
 	sqlf.SetDialect(sqlf.PostgreSQL)
 	ctx := context.Background()
 	db := config.GetDB()
 
+	var limitQuery int
 	var total int
 	var err error
+
+	minLimitQuery := 10
+	maxLimitQuery := 1000
 
 	qPage := c.Query("page")
 	qPageSize := c.Query("pageSize")
@@ -40,14 +51,33 @@ func QueryBuilder(table string, c *fiber.Ctx) (*sqlf.Stmt, int) {
 	}
 
 	if qPageSize == "" {
-		qPageSize = "10"
+		qPageSize = string(rune(minLimitQuery))
 	}
 
 	page, _ := strconv.Atoi(qPage)
 	pageSize, _ := strconv.Atoi(qPageSize)
 
+	for _, opt := range options {
+		// increase max limit query
+		if opt.Limit > 0 {
+			maxLimitQuery = opt.Limit
+		}
+	}
+
+	if pageSize <= 0 {
+		limitQuery = minLimitQuery
+	} else if pageSize > maxLimitQuery {
+		limitQuery = maxLimitQuery
+	} else {
+		limitQuery = pageSize
+	}
+
 	// query record to database
-	qRecord := sqlf.From(table).Select("*").Paginate(page, pageSize)
+	qRecord := sqlf.From(table).Select("*").Paginate(page, limitQuery)
+
+	// log query offset & limit
+	logOffsetLimit := fmt.Sprintf("OFFSET %d LIMIT %d", page, limitQuery)
+	fmt.Println(helpers.PrintLog("Sqlf", logOffsetLimit))
 
 	// check query filtered not empty
 	if qFiltered != "" {
@@ -65,8 +95,22 @@ func QueryBuilder(table string, c *fiber.Ctx) (*sqlf.Stmt, int) {
 			filterId := filtered[k].ID
 			filterValue := filtered[k].Value
 
-			queryFilter := fmt.Sprintln(filterId + " ILIKE '%" + filterValue + "%' ")
-			qRecord.Where(queryFilter)
+			checkUUID := helpers.IsValidUUID(filterValue)
+			checkNumber := helpers.IsDigit(filterValue)
+
+			if checkUUID {
+				// check value is UUID
+				queryFilter := fmt.Sprintf("%s = '%s'", filterId, filterValue)
+				qRecord.Where(queryFilter)
+			} else if !checkUUID && checkNumber {
+				// check value is number
+				queryFilter := fmt.Sprintf("%s = '%s'", filterId, filterValue)
+				qRecord.Where(queryFilter)
+			} else {
+				// default query LIKE
+				queryFilter := fmt.Sprintln(filterId + " ILIKE '%" + filterValue + "%'")
+				qRecord.Where(queryFilter)
+			}
 		}
 	}
 
@@ -96,8 +140,8 @@ func QueryBuilder(table string, c *fiber.Ctx) (*sqlf.Stmt, int) {
 
 	// query count total record
 	qTotal := sqlf.From(table).Select("COUNT(*)").To(&total)
-	qTotalLog := helpers.PrintLog("Sqlf", qTotal.String())
 
+	qTotalLog := helpers.PrintLog("Sqlf", qTotal.String())
 	fmt.Println(qTotalLog)
 
 	// check query count
