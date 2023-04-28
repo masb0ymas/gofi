@@ -39,7 +39,13 @@ func (s *RoleService) FindAll(c *fiber.Ctx) ([]entities.RoleEntity, int, error) 
 		var record entities.RoleEntity
 
 		// Scan Record
-		rows.Scan(&record.Id, &record.CreatedAt, &record.UpdatedAt, &record.DeletedAt, &record.Name)
+		err = rows.Scan(&record.Id, &record.CreatedAt, &record.UpdatedAt, &record.DeletedAt, &record.Name)
+
+		if err != nil {
+			fmt.Println(err)
+			panic(err)
+		}
+
 		data = append(data, record)
 	})
 
