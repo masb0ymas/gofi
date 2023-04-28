@@ -4,13 +4,9 @@ go 1.20
 
 require (
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/lib/pq v1.10.8
+	github.com/leporo/sqlf v1.4.0
+	github.com/lib/pq v1.10.9
 	golang.org/x/crypto v0.8.0
-)
-
-require (
-	github.com/leporo/sqlf v1.4.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 )
 
 require (
