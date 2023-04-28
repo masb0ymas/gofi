@@ -73,7 +73,7 @@ func QueryBuilder(table string, c *fiber.Ctx, options ...QueryBuilderOptions) (*
 	}
 
 	// query record to database
-	qRecord := sqlf.From(table).Select("*").Paginate(page, limitQuery)
+	qRecord := sqlf.From(`public.`+table+``).Select("*").Paginate(page, limitQuery)
 
 	// log query offset & limit
 	logOffsetLimit := fmt.Sprintf("OFFSET %d LIMIT %d", page, limitQuery)
@@ -97,6 +97,7 @@ func QueryBuilder(table string, c *fiber.Ctx, options ...QueryBuilderOptions) (*
 
 			checkUUID := helpers.IsValidUUID(filterValue)
 			checkNumber := helpers.IsDigit(filterValue)
+			checkBool, _ := strconv.ParseBool(filterValue)
 
 			if checkUUID {
 				// check value is UUID
@@ -104,6 +105,10 @@ func QueryBuilder(table string, c *fiber.Ctx, options ...QueryBuilderOptions) (*
 				qRecord.Where(queryFilter)
 			} else if !checkUUID && checkNumber {
 				// check value is number
+				queryFilter := fmt.Sprintf("%s = '%s'", filterId, filterValue)
+				qRecord.Where(queryFilter)
+			} else if checkBool {
+				// check value is boolean
 				queryFilter := fmt.Sprintf("%s = '%s'", filterId, filterValue)
 				qRecord.Where(queryFilter)
 			} else {
