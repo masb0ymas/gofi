@@ -9,6 +9,8 @@ require (
 	golang.org/x/crypto v0.8.0
 )
 
+require github.com/dranikpg/dto-mapper v0.1.1
+
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
