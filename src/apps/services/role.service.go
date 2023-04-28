@@ -22,11 +22,11 @@ func NewRoleService(db *sqlx.DB) *RoleService {
 }
 
 func (s *RoleService) FindAll(c *fiber.Ctx) ([]entities.RoleEntity, int, error) {
-	var data []entities.RoleEntity
-	var err error
-
 	sqlf.SetDialect(sqlf.PostgreSQL)
 	ctx := context.Background()
+
+	var data []entities.RoleEntity
+	var err error
 
 	// get query builder
 	qRecord, total := modules.QueryBuilder("role", c)

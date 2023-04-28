@@ -17,4 +17,8 @@ func RouteV1(app *fiber.App) {
 	// Endpoint Role
 	roleHandler := v1.Group("/role")
 	roleHandler.Get("/", controllers.FindAllRole)
+
+	// Endpoint User
+	userHandler := v1.Group("/user")
+	userHandler.Get("/", controllers.FindAllUser)
 }
