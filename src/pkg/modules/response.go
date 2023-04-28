@@ -19,6 +19,7 @@ func HttpResponse(response ...Response) *Response {
 		result.Code = resp.Code
 		result.Message = resp.Message
 		result.Data = resp.Data
+		result.Total = resp.Total
 
 		if resp.Code == 0 {
 			result.Code = http.StatusOK
