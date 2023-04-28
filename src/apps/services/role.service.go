@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"gofi/src/database/entities"
 	"gofi/src/pkg/helpers"
-	"strconv"
+	"gofi/src/pkg/modules"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jmoiron/sqlx"
@@ -21,38 +21,21 @@ func NewRoleService(db *sqlx.DB) *RoleService {
 	return &RoleService{db}
 }
 
-func (s *RoleService) FindAll(c *fiber.Ctx) ([]entities.RoleEntity, error) {
+func (s *RoleService) FindAll(c *fiber.Ctx) ([]entities.RoleEntity, int, error) {
 	var data []entities.RoleEntity
-
-	queryPage := c.Query("page")
-	queryPageSize := c.Query("pageSize")
-
-	if queryPage == "" {
-		queryPage = "1"
-	}
-
-	if queryPageSize == "" {
-		queryPageSize = "10"
-	}
-
-	page, _ := strconv.Atoi(queryPage)
-	pageSize, _ := strconv.Atoi(queryPageSize)
-
-	skip := (page - 1) * pageSize
+	var err error
 
 	sqlf.SetDialect(sqlf.PostgreSQL)
 	ctx := context.Background()
 
-	// query builder
-	query := sqlf.Select("*").From("role").
-		OrderBy("created_at DESC").
-		Offset(skip).
-		Limit(pageSize)
+	// get query builder
+	qRecord, total := modules.QueryBuilder("role", c)
+	qRecordLog := helpers.PrintLog("Sqlf", qRecord.String())
 
-	queryLog := helpers.PrintLog("Sqlf", query.String())
-	fmt.Println(queryLog)
+	fmt.Println(qRecordLog)
 
-	err := query.QueryAndClose(ctx, s.db, func(rows *sql.Rows) {
+	// check query record
+	err = qRecord.QueryAndClose(ctx, s.db, func(rows *sql.Rows) {
 		var record entities.RoleEntity
 
 		// Scan Record
@@ -62,8 +45,8 @@ func (s *RoleService) FindAll(c *fiber.Ctx) ([]entities.RoleEntity, error) {
 
 	if err != nil {
 		fmt.Println(err)
-		return data, err
+		return data, total, err
 	}
 
-	return data, nil
+	return data, total, nil
 }
