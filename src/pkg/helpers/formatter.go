@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"unicode"
 
 	"github.com/fatih/color"
+	"github.com/google/uuid"
 )
 
 type Options struct {
@@ -57,4 +59,30 @@ func PrettyJSON(data interface{}) {
 	}
 
 	fmt.Println(string(b))
+}
+
+// check uuid is valid
+func IsValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
+}
+
+// check value is digit
+func IsDigit(s string) bool {
+	for _, c := range s {
+		if !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// check value is number
+func IsNumber(s string) bool {
+	for _, c := range s {
+		if !unicode.IsNumber(c) {
+			return false
+		}
+	}
+	return true
 }
