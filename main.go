@@ -1,47 +1,51 @@
 package main
 
 import (
-	"gofi/src/pkg/config"
-	"gofi/src/routes"
+	"gofi/config"
+	"gofi/database"
 	"log"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
-	"github.com/gofiber/helmet/v2"
+)
+
+var (
+	port         = config.Env("APP_PORT", "8080")
+	dbname       = config.Env("DB_DATABASE", "db_example")
+	ratelimit, _ = strconv.Atoi(config.Env("APP_RATE_LIMIT", "100"))
 )
 
 func main() {
+	// database instance
+	db, err := database.NewDatabase()
+	if err != nil {
+		log.Fatalf("error opening database: %v", err)
+	}
+	defer db.Close()
+	log.Printf("successfully connected to database %v", dbname)
+
+	// fiber instance
 	app := fiber.New()
 
-	port := config.Env("APP_PORT", "8000")
-	envRateLimit := config.Env("RATE_LIMIT", "10")
-	rateLimit, _ := strconv.Atoi(envRateLimit)
-
-	// default middleware
+	// use middleware
 	app.Use(cors.New(config.Cors()))
 	app.Use(compress.New())
 	app.Use(helmet.New())
 	app.Use(logger.New())
-	app.Use(limiter.New(limiter.Config{Max: rateLimit}))
+	app.Use(limiter.New(limiter.Config{Max: ratelimit}))
 	app.Use(requestid.New())
 	app.Use(recover.New())
 
 	// static file
 	app.Static("/", "./public")
 
-	// Connect to the Database
-	config.ConnectDB()
-
-	// initial app route
-	routes.Initialize(app)
-
-	// listening app
+	// listen app
 	log.Fatal(app.Listen(":" + port))
-
 }
