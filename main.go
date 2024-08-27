@@ -3,6 +3,7 @@ package main
 import (
 	"gofi/config"
 	"gofi/database"
+	"gofi/routes"
 	"log"
 	"strconv"
 
@@ -45,6 +46,9 @@ func main() {
 
 	// static file
 	app.Static("/", "./public")
+
+	// initial routes
+	routes.Routes(db.GetDB(), app)
 
 	// listen app
 	log.Fatal(app.Listen(":" + port))
