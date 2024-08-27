@@ -94,7 +94,7 @@ func (repo *RoleRepository) UpdateRole(ctx context.Context, r *entity.Role) (*en
 
 const deleteRole = `
 	DELETE FROM "role" 
-	WHERE id=?
+	WHERE id=$1
 `
 
 func (repo *RoleRepository) DeleteRole(ctx context.Context, id uuid.UUID) error {

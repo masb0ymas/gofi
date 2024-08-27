@@ -266,7 +266,7 @@ func TestDeleteRole(t *testing.T) {
 		{
 			name: "success",
 			test: func(t *testing.T, repo *RoleRepository, mock sqlmock.Sqlmock) {
-				mock.ExpectExec(`DELETE FROM "role" WHERE id=?`).
+				mock.ExpectExec(`DELETE FROM "role" WHERE id=$1`).
 					WithArgs(expectedID).
 					WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -280,7 +280,7 @@ func TestDeleteRole(t *testing.T) {
 		{
 			name: "failed deleting role",
 			test: func(t *testing.T, repo *RoleRepository, mock sqlmock.Sqlmock) {
-				mock.ExpectExec(`DELETE FROM "role" WHERE id=?`).
+				mock.ExpectExec(`DELETE FROM "role" WHERE id=$1`).
 					WithArgs(expectedID).
 					WillReturnError(fmt.Errorf("error deleting role"))
 
