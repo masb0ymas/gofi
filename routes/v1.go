@@ -14,4 +14,5 @@ func v1Route(db *sqlx.DB, app *fiber.App) {
 	})
 
 	handler.RoleHandler(db, v1)
+	handler.SessionHandler(db, v1)
 }
