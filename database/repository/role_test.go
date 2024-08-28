@@ -13,25 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	r = &entity.Role{
+func TestCreateRole(t *testing.T) {
+	r := &entity.Role{
 		Name: "Test Role",
 	}
-)
 
-func withTestDB(t *testing.T, fn func(*sqlx.DB, sqlmock.Sqlmock)) {
-	mockDB, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockDB.Close()
-
-	db := sqlx.NewDb(mockDB, "sqlmock")
-
-	fn(db, mock)
-}
-
-func TestCreateRole(t *testing.T) {
 	expectedID := uuid.New()
 
 	tcs := []struct {
@@ -88,6 +74,10 @@ func TestCreateRole(t *testing.T) {
 }
 
 func TestGetRole(t *testing.T) {
+	r := &entity.Role{
+		Name: "Test Role",
+	}
+
 	expectedID := uuid.New()
 
 	tcs := []struct {
@@ -139,6 +129,10 @@ func TestGetRole(t *testing.T) {
 }
 
 func TestListRoles(t *testing.T) {
+	r := &entity.Role{
+		Name: "Test Role",
+	}
+
 	expectedID := uuid.New()
 
 	tcs := []struct {
