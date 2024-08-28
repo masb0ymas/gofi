@@ -40,10 +40,6 @@ func toRoleRes(r *entity.Role) entity.RoleRes {
 	}
 }
 
-func toTimePtr(t time.Time) time.Time {
-	return t
-}
-
 func pathRoleReq(role *entity.Role, r entity.RoleReq) {
 	if r.Name != "" {
 		role.Name = r.Name
