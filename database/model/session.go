@@ -15,5 +15,5 @@ type Session struct {
 	UserAgent string    `db:"user_agent" json:"user_agent"`
 	Latitude  *string   `db:"latitude" json:"latitude"`
 	Longitude *string   `db:"longitude" json:"longitude"`
-	User      User      `json:"user"`
+	User      User      `json:"user,omitempty"`
 }

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"goarif-api/config"
@@ -141,6 +142,10 @@ func (r *AuthRepository) VerifySession(user_id uuid.UUID, token string) (*model.
 	`
 	err := r.db.Get(&existingSession, query, user_id, token)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("session not found")
+		}
+
 		return nil, err
 	}
 
@@ -170,9 +175,15 @@ func (r *AuthRepository) VerifySession(user_id uuid.UUID, token string) (*model.
 func (r *AuthRepository) SignOut(user_id uuid.UUID, token string) error {
 	var existingUser model.User
 
-	query := "SELECT * FROM user WHERE id = $1"
+	query := `
+		SELECT * FROM "user" WHERE id = $1
+	`
 	err := r.db.Get(&existingUser, query, user_id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("user not found")
+		}
+
 		return err
 	}
 
@@ -180,7 +191,9 @@ func (r *AuthRepository) SignOut(user_id uuid.UUID, token string) error {
 		return errors.New("user not found")
 	}
 
-	query = "DELETE FROM session WHERE user_id = $1 AND token = $2"
+	query = `
+		DELETE FROM "session" WHERE user_id = $1 AND token = $2
+	`
 	_, err = r.db.Exec(query, user_id, token)
 	return err
 }

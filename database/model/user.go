@@ -17,7 +17,7 @@ type User struct {
 	IsBlocked       bool              `db:"is_blocked" json:"is_blocked"`
 	RoleID          uuid.UUID         `db:"role_id" json:"role_id"`
 	UploadID        *uuid.UUID        `db:"upload_id" json:"upload_id"`
-	Role            Role              `json:"role"`
+	Role            Role              `json:"role,omitempty"`
 	Upload          Upload            `json:"upload,omitempty"`
 	AccountProvider []AccountProvider `json:"account_provider,omitempty"`
 }
