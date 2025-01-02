@@ -1,6 +1,7 @@
 package main
 
 import (
+	"goarif-api/config"
 	"goarif-api/database"
 	"goarif-api/routes"
 	"log"
@@ -37,7 +38,7 @@ func main() {
 	// Middleware
 	app.Use(logger.New())
 	app.Use(recover.New())
-	app.Use(cors.New())
+	app.Use(cors.New(config.Cors()))
 	app.Use(helmet.New())
 	app.Use(compress.New())
 	app.Use(requestid.New())
