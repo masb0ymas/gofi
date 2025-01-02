@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"goarif-api/config"
 	"goarif-api/database"
 	"goarif-api/routes"
@@ -16,6 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/masb0ymas/go-utils/pkg"
 )
 
 func main() {
@@ -65,7 +67,8 @@ func main() {
 	}
 
 	// Start server
-	log.Printf("Server starting on port %s", port)
+	logMessage := pkg.PrintLog("Fiber", "Server starting on port "+port+"")
+	fmt.Println(logMessage)
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
