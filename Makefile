@@ -1,13 +1,28 @@
 include .env
 
 # build dir
-BUILD_DIR=./dist
+BUILD_DIR=./cmd
 
 # migration path
 MIGRATION_PATH=./database/migrations
 
 # database url
 DATABASE_URL="$(DB_CONNECTION)://$(DB_USERNAME):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_DATABASE)?sslmode=disable"
+
+.PHONY: setup
+setup:
+	chmod +x ./script/setup.sh
+	bash ./script/setup.sh
+
+.PHONY: release
+release:
+	chmod +x ./script/release.sh
+	bash ./script/release.sh
+
+.PHONY: bump-version
+bump-version:
+	chmod +x ./script/bump-version.sh
+	bash ./script/bump-version.sh
 
 .PHONY: update-deps
 update-deps:
@@ -19,7 +34,7 @@ dev:
 
 .PHONY: clean
 clean:
-	rm -rf ./dist
+	rm -rf $(BUILD_DIR)
 
 .PHONY: build
 build: clean
@@ -29,14 +44,18 @@ build: clean
 start: build
 	$(BUILD_DIR)/$(APP_NAME)
 
+# Using Golang Migrate
 .PHONY: migration-create
-migration-create: 
-	migrate create -ext sql -dir $(MIGRATION_PATH) -seq create_initial_table
+migration-create:
+	read -p "Enter migration name: " name; \
+	migrate create -ext sql -dir $(MIGRATION_PATH) -seq "$$(date +%Y%m%d%H%M%S)_$$name"
 
+# Using Golang Migrate
 .PHONE: migration-up
 migration-up:
 	migrate -path $(MIGRATION_PATH) -database $(DATABASE_URL) -verbose up
 
+# Using Golang Migrate
 .PHONE: migration-down
 migration-down:
 	migrate -path $(MIGRATION_PATH) -database $(DATABASE_URL) -verbose down

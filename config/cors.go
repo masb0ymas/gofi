@@ -1,8 +1,8 @@
 package config
 
 import (
-	"fmt"
-	"gofi/pkg/constant"
+	"gofi/lib/constant"
+	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -12,12 +12,12 @@ import (
 func Cors() cors.Config {
 	allowedOrigin := strings.Join(constant.AllowedOrigin(), ", ")
 
-	logMessage := pkg.PrintLog("Cors", "Allowed Origins ( "+allowedOrigin+" )")
-	fmt.Println(logMessage)
+	msg := pkg.Println("Cors", "Allowed Origins ( "+allowedOrigin+" )")
+	log.Println(msg)
 
 	result := cors.Config{
 		AllowOrigins: allowedOrigin,
-		// AllowMethods:  "GET, POST, HEAD, PUT, DELETE, PATCH",
+		AllowMethods: "GET, POST, HEAD, PUT, DELETE, PATCH, OPTIONS",
 		// AllowHeaders:  "X-Requested-With, Content-Type, Origin, Authorization, Accept, Client-Security-Token, Accept-Encoding, x-access-token",
 		// ExposeHeaders: "Content-Length",
 		// MaxAge:        86400,
