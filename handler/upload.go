@@ -26,15 +26,15 @@ func (h *UploadHandler) RegisterRoutes(route fiber.Router) {
 	// only admin can access
 	adminOnly := []string{constant.ID_SUPER_ADMIN, constant.ID_ADMIN}
 
-	new_route := route.Group("/upload")
+	new_route := route.Group("/upload", middleware.Authorization())
 	new_route.Get("/", h.GetAllUploads)
 	new_route.Get("/:id", h.GetUploadById)
 	new_route.Post("/", h.CreateUpload)
 	new_route.Post("/public-view", h.CreateUploadPublicView)
-	new_route.Put("/:id", middleware.Authorization(), middleware.PermissionAccess(adminOnly), h.UpdateUpload)
-	new_route.Put("/restore/:id", middleware.Authorization(), middleware.PermissionAccess(adminOnly), h.RestoreUpload)
-	new_route.Delete("/soft-delete/:id", middleware.Authorization(), middleware.PermissionAccess(adminOnly), h.SoftDeleteUpload)
-	new_route.Delete("/force-delete/:id", middleware.Authorization(), middleware.PermissionAccess(adminOnly), h.ForceDeleteUpload)
+	new_route.Put("/:id", middleware.PermissionAccess(adminOnly), h.UpdateUpload)
+	new_route.Put("/restore/:id", middleware.PermissionAccess(adminOnly), h.RestoreUpload)
+	new_route.Delete("/soft-delete/:id", middleware.PermissionAccess(adminOnly), h.SoftDeleteUpload)
+	new_route.Delete("/force-delete/:id", middleware.PermissionAccess(adminOnly), h.ForceDeleteUpload)
 }
 
 func (h *UploadHandler) GetAllUploads(c *fiber.Ctx) error {
