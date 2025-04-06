@@ -28,6 +28,10 @@ bump-version:
 update-deps:
 	go get -u && go mod tidy
 
+.PHONY: security
+security:
+	./bin/gosec ./...
+
 .PHONY: dev
 dev:
 	./bin/air server --port $(APP_PORT)
