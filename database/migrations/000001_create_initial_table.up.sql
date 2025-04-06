@@ -12,7 +12,7 @@ CREATE TABLE "upload" (
   "mimetype" VARCHAR NOT NULL,
   "size" INT NOT NULL,
   "signed_url" TEXT NOT NULL,
-  "expired_at" TIMESTAMP NOT NULL
+  "expires_at" TIMESTAMP NOT NULL
 );
 
 CREATE INDEX idx_upload_id ON "upload" (id);
@@ -21,7 +21,7 @@ CREATE INDEX idx_upload_updated_at ON "upload" (updated_at);
 CREATE INDEX idx_upload_deleted_at ON "upload" (deleted_at);
 CREATE INDEX idx_upload_keyfile ON "upload" (keyfile);
 CREATE INDEX idx_upload_filename ON "upload" (filename);
-CREATE INDEX idx_upload_expired_at ON "upload" (expired_at);
+CREATE INDEX idx_upload_expires_at ON "upload" (expires_at);
 
 CREATE TABLE "role" (
   "id" UUID PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
