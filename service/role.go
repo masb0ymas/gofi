@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"gofi/database/model"
 	"gofi/lib"
@@ -34,7 +35,7 @@ func (s *RoleService) GetAllRoles(req *lib.Pagination) ([]model.Role, int64, err
 
 func (s *RoleService) GetRoleById(id uuid.UUID) (*model.Role, error) {
 	record, err := s.repo.FindById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {
@@ -45,7 +46,7 @@ func (s *RoleService) GetRoleById(id uuid.UUID) (*model.Role, error) {
 
 func (s *RoleService) GetRoleRecordById(id uuid.UUID) (*model.Role, error) {
 	record, err := s.repo.FindRecordById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {

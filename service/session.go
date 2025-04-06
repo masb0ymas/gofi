@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"gofi/config"
 	"gofi/database/model"
@@ -35,7 +36,7 @@ func (s *SessionService) GetAllSessions(req *lib.Pagination) ([]model.Session, i
 
 func (s *SessionService) GetSessionById(id uuid.UUID) (*model.Session, error) {
 	record, err := s.repo.FindById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {
@@ -46,7 +47,7 @@ func (s *SessionService) GetSessionById(id uuid.UUID) (*model.Session, error) {
 
 func (s *SessionService) GetSessionRecordById(id uuid.UUID) (*model.Session, error) {
 	record, err := s.repo.FindRecordById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {

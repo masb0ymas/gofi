@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"gofi/database/model"
 	"gofi/lib"
@@ -50,7 +51,7 @@ func (s *UploadService) GetAllUploads(req *lib.Pagination) ([]model.Upload, int6
 
 func (s *UploadService) GetUploadById(id uuid.UUID) (*model.Upload, error) {
 	record, err := s.repo.FindById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {
@@ -61,7 +62,7 @@ func (s *UploadService) GetUploadById(id uuid.UUID) (*model.Upload, error) {
 
 func (s *UploadService) GetUploadRecordById(id uuid.UUID) (*model.Upload, error) {
 	record, err := s.repo.FindRecordById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {
