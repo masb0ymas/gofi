@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"gofi/database/model"
 	"gofi/lib"
@@ -42,7 +43,7 @@ func (s *UserService) GetAllUsers(req *lib.Pagination) ([]model.User, int64, err
 
 func (s *UserService) GetUserById(id uuid.UUID) (*model.User, error) {
 	record, err := s.repo.FindById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {
@@ -53,7 +54,7 @@ func (s *UserService) GetUserById(id uuid.UUID) (*model.User, error) {
 
 func (s *UserService) GetUserByEmail(email string) (*model.User, error) {
 	record, err := s.repo.FindByEmail(email)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {
@@ -64,7 +65,7 @@ func (s *UserService) GetUserByEmail(email string) (*model.User, error) {
 
 func (s *UserService) GetUserRecordById(id uuid.UUID) (*model.User, error) {
 	record, err := s.repo.FindRecordById(id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if record == nil {

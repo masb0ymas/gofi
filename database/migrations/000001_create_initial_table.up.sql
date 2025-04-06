@@ -4,15 +4,15 @@ ALTER DATABASE "dev_dbgofi" SET timezone TO "Asia/Jakarta";
 
 CREATE TABLE "upload" (
   "id" UUID PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
-  "created_at" timestamp DEFAULT now(),
-  "updated_at" timestamp DEFAULT now(),
-  "deleted_at" timestamp,
-  "keyfile" varchar NOT NULL,
-  "filename" text NOT NULL,
-  "mimetype" varchar NOT NULL,
-  "size" int NOT NULL,
-  "signed_url" text NOT NULL,
-  "expired_at" timestamp NOT NULL
+  "created_at" TIMESTAMP DEFAULT now(),
+  "updated_at" TIMESTAMP DEFAULT now(),
+  "deleted_at" TIMESTAMP,
+  "keyfile" VARCHAR NOT NULL,
+  "filename" TEXT NOT NULL,
+  "mimetype" VARCHAR NOT NULL,
+  "size" INT NOT NULL,
+  "signed_url" TEXT NOT NULL,
+  "expires_at" TIMESTAMP NOT NULL
 );
 
 CREATE INDEX idx_upload_id ON "upload" (id);
@@ -21,14 +21,14 @@ CREATE INDEX idx_upload_updated_at ON "upload" (updated_at);
 CREATE INDEX idx_upload_deleted_at ON "upload" (deleted_at);
 CREATE INDEX idx_upload_keyfile ON "upload" (keyfile);
 CREATE INDEX idx_upload_filename ON "upload" (filename);
-CREATE INDEX idx_upload_expired_at ON "upload" (expired_at);
+CREATE INDEX idx_upload_expires_at ON "upload" (expires_at);
 
 CREATE TABLE "role" (
   "id" UUID PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
-  "created_at" timestamp DEFAULT now(),
-  "updated_at" timestamp DEFAULT now(),
-  "deleted_at" timestamp,
-  "name" varchar NOT NULL
+  "created_at" TIMESTAMP DEFAULT now(),
+  "updated_at" TIMESTAMP DEFAULT now(),
+  "deleted_at" TIMESTAMP,
+  "name" VARCHAR NOT NULL
 );
 
 CREATE INDEX idx_role_id ON "role" (id);
@@ -44,18 +44,18 @@ INSERT INTO "role" ("id","created_at","updated_at","deleted_at","name") VALUES
 
 CREATE TABLE "user" (
   "id" UUID PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
-  "created_at" timestamp DEFAULT now(),
-  "updated_at" timestamp DEFAULT now(),
-  "deleted_at" timestamp,
-  "fullname" varchar NOT NULL,
-  "email" varchar(255) NOT NULL,
-  "password" text NOT NULL,
-  "phone" varchar(20) NULL,
-  "token_verify" text NULL,
-  "is_active" bool NOT NULL,
-  "is_blocked" bool NOT NULL,
-  "role_id" uuid NOT NULL,
-  "upload_id" uuid NULL
+  "created_at" TIMESTAMP DEFAULT now(),
+  "updated_at" TIMESTAMP DEFAULT now(),
+  "deleted_at" TIMESTAMP,
+  "fullname" VARCHAR NOT NULL,
+  "email" VARCHAR(255) NOT NULL,
+  "password" TEXT NOT NULL,
+  "phone" VARCHAR(20) NULL,
+  "token_verify" TEXT NULL,
+  "is_active" BOOL NOT NULL,
+  "is_blocked" BOOL NOT NULL,
+  "role_id" UUID NOT NULL,
+  "upload_id" UUID NULL
 );
 
 CREATE INDEX idx_user_id ON "user" (id);
@@ -78,12 +78,16 @@ INSERT INTO "user" ("id","created_at","updated_at","deleted_at","fullname","emai
 	 (uuid_generate_v4(),now(),now(),NULL,'User','user@example.com','$argon2id$v=19$m=65536,t=3,p=2$wnMuSBm5Fbw6mo5p4f3I6A$FzqhdZTYyklKziq506MM7cA2Cm7n4ud7GoSXMw6VVnc',NULL,NULL,true,false,'fb81445d-0190-499e-b3af-9c8a4522b8e1',NULL);
 
 CREATE TABLE "session" (
-  "id" uuid PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
-  "created_at" timestamp DEFAULT now(),
-  "updated_at" timestamp DEFAULT now(),
-  "user_id" uuid NOT NULL,
-  "token" text NOT NULL,
-  "expired_at" timestamp NOT NULL
+  "id" UUID PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
+  "created_at" TIMESTAMP DEFAULT now(),
+  "updated_at" TIMESTAMP DEFAULT now(),
+  "user_id" UUID NOT NULL,
+  "token" TEXT NOT NULL,
+  "expires_at" TIMESTAMP NOT NULL,
+  "ip_address" VARCHAR NOT NULL,
+  "user_agent" TEXT NOT NULL,
+  "latitude" VARCHAR NULL,
+  "longitude" VARCHAR NULL
 );
 
 CREATE INDEX idx_session_id ON "session" (id);
@@ -91,6 +95,6 @@ CREATE INDEX idx_session_created_at ON "session" (created_at);
 CREATE INDEX idx_session_updated_at ON "session" (updated_at);
 CREATE INDEX idx_session_user_id ON "session" (user_id);
 CREATE INDEX idx_session_token ON "session" (token);
-CREATE INDEX idx_session_expired_at ON "session" (expired_at);
+CREATE INDEX idx_session_expires_at ON "session" (expires_at);
 
 ALTER TABLE "session" ADD FOREIGN KEY ("user_id") REFERENCES "user" ("id");

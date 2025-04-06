@@ -9,6 +9,7 @@
 /dist
 /build
 /tmp
+/cmd
 
 # misc
 .DS_Store
