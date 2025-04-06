@@ -32,20 +32,24 @@ func Authorization() fiber.Handler {
 			return lib.SendUnauthorizedResponse(c, err.Error())
 		}
 
+		if session.ID == uuid.Nil {
+			return lib.SendUnauthorizedResponse(c, "Unauthorized: session not found")
+		}
+
 		// check session from header token
 		if session.ID != uuid.Nil {
 			claims, err := lib.VerifyToken(c, secretKey)
 			if err != nil {
-				return lib.SendUnauthorizedResponse(c, err.Error())
+				return lib.SendUnauthorizedResponse(c, "Unauthorized: "+err.Error())
 			}
 
 			uid, err := uuid.Parse(claims.UID)
 			if err != nil {
-				return lib.SendUnauthorizedResponse(c, "invalid UID in token")
+				return lib.SendUnauthorizedResponse(c, "Unauthorized: invalid UID in token")
 			}
 
 			if claims.Exp < time.Now().Unix() {
-				return lib.SendUnauthorizedResponse(c, "token is invalid")
+				return lib.SendUnauthorizedResponse(c, "Unauthorized: invalid token")
 			}
 
 			c.Locals("uid", uid.String())
