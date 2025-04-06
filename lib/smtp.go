@@ -15,6 +15,7 @@ import (
 type SMTPConfig struct {
 	Host     string
 	Port     string
+	From     string
 	Username string
 	Password string
 }
@@ -23,6 +24,7 @@ func NewSMTPConfig() *SMTPConfig {
 	return &SMTPConfig{
 		Host:     config.Env("SMTP_HOST", "smtp.gmail.com"),
 		Port:     config.Env("SMTP_PORT", "587"),
+		From:     config.Env("SMTP_FROM", "your_email_from"),
 		Username: config.Env("SMTP_USERNAME", "your-smtp-username"),
 		Password: config.Env("SMTP_PASSWORD", "your-smtp-password"),
 	}
@@ -48,7 +50,7 @@ func SendEmail(value SendEmailParams) error {
 	config := NewSMTPConfig()
 
 	addr := fmt.Sprintf("%s:%s", config.Host, config.Port)
-	from := config.Username
+	from := config.From
 	send_to := []string{value.To}
 
 	// Load the HTML template

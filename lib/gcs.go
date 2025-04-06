@@ -26,6 +26,7 @@ type GoogleCloudStorage struct {
 	Region         string
 	GoogleAccessID string
 	ExpiresIn      string
+	FilePath       string
 }
 
 func NewGoogleCloudStorageConfig() *GoogleCloudStorage {
@@ -35,6 +36,7 @@ func NewGoogleCloudStorageConfig() *GoogleCloudStorage {
 		Region:         config.Env("STORAGE_REGION", "asia-southeast2"),
 		GoogleAccessID: config.Env("STORAGE_ACCESS_ID", "your-access-id"),
 		ExpiresIn:      config.Env("STORAGE_EXPIRES_IN", "7"),
+		FilePath:       config.Env("STORAGE_FILE_PATH", "./secret/service-account-gcs.json"),
 	}
 }
 
@@ -45,7 +47,7 @@ func InitGCS() {
 	config := NewGoogleCloudStorageConfig()
 
 	// Create new client
-	client, err = storage.NewClient(ctx, option.WithCredentialsFile("secret/service-account-gcs.json"))
+	client, err = storage.NewClient(ctx, option.WithCredentialsFile(config.FilePath))
 	if err != nil {
 		panic(err)
 	}

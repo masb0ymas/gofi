@@ -55,7 +55,7 @@ func (s *UploadService) GetUploadById(id uuid.UUID) (*model.Upload, error) {
 		return nil, err
 	}
 	if record == nil {
-		return nil, errors.New("role not found")
+		return nil, errors.New("upload not found")
 	}
 	return record, nil
 }
@@ -66,7 +66,7 @@ func (s *UploadService) GetUploadRecordById(id uuid.UUID) (*model.Upload, error)
 		return nil, err
 	}
 	if record == nil {
-		return nil, errors.New("role not found")
+		return nil, errors.New("upload not found")
 	}
 	return record, nil
 }
