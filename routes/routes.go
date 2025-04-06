@@ -1,11 +1,14 @@
 package routes
 
 import (
+	"fmt"
+	"gofi/config"
 	"gofi/lib"
 	"net/http"
 	"runtime"
 	"time"
 
+	"github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/masb0ymas/go-utils/pkg"
@@ -36,6 +39,26 @@ func Root(db *sqlx.DB, app *fiber.App) {
 
 	app.Get("/v1", func(c *fiber.Ctx) error {
 		return lib.SendForbiddenResponse(c, fiber.NewError(http.StatusForbidden).Error())
+	})
+
+	app.Get("/api-docs", func(c *fiber.Ctx) error {
+		url := config.Env("APP_SERVER_URL", "http://localhost:8000")
+
+		htmlContent, err := scalar.ApiReferenceHTML(&scalar.Options{
+			SpecURL: fmt.Sprintf("%s/docs/swagger.json", url),
+			CustomOptions: scalar.CustomOptions{
+				PageTitle: "Docs Go-Fi API",
+			},
+			DarkMode: true,
+		})
+
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		return c.Type("html").SendString(htmlContent)
 	})
 
 	// initial v1 route
