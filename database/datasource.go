@@ -3,41 +3,74 @@ package database
 import (
 	"fmt"
 	"gofi/config"
-	"strconv"
+	"log"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/masb0ymas/go-utils/pkg"
 )
 
-type Database struct {
-	db *sqlx.DB
+var DB *sqlx.DB
+
+type DBConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Name     string
+	SSLMode  string
 }
 
-var (
-	host     = config.Env("DB_HOST", "127.0.01")
-	port, _  = strconv.Atoi(config.Env("DB_PORT", "5432"))
-	dbname   = config.Env("DB_DATABASE", "db_example")
-	username = config.Env("DB_USERNAME", "postgres")
-	password = config.Env("DB_PASSWORD", "postgres")
-)
+// NewDBConfig creates a new database configuration from environment variables
+func NewDBConfig() *DBConfig {
+	return &DBConfig{
+		Host:     config.Env("DB_HOST", "localhost"),
+		Port:     config.Env("DB_PORT", "5432"),
+		User:     config.Env("DB_USERNAME", "postgres"),
+		Password: config.Env("DB_PASSWORD", "postgres"),
+		Name:     config.Env("DB_DATABASE", "example"),
+		SSLMode:  config.Env("DB_SSL_MODE", "disable"),
+	}
+}
 
-func NewDatabase() (*Database, error) {
-	// Connection to the database
-	var connect string = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		host, port, username, password, dbname)
+// Connect establishes a connection to the database
+func Connect() error {
+	config := NewDBConfig()
 
-	db, err := sqlx.Open("postgres", connect)
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		config.Host,
+		config.Port,
+		config.User,
+		config.Password,
+		config.Name,
+		config.SSLMode,
+	)
+
+	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("error opening database: %v", err)
+		return fmt.Errorf("error connecting to the database: %v", err)
 	}
 
-	return &Database{db: db}, nil
+	// Set connection pool settings
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Test the connection
+	err = db.Ping()
+	if err != nil {
+		return fmt.Errorf("error pinging the database: %v", err)
+	}
+
+	DB = db
+
+	msg := pkg.Println("Sqlx", fmt.Sprintf("Successfully connected to database: %s", config.Name))
+	log.Println(msg)
+
+	return nil
 }
 
-func (d *Database) Close() error {
-	return d.db.Close()
-}
-
-func (d *Database) GetDB() *sqlx.DB {
-	return d.db
+func GetDB() *sqlx.DB {
+	return DB
 }
