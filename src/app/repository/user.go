@@ -38,7 +38,7 @@ func (r *UserRepository) FindAllWithPagination(req *lib.Pagination) ([]model.Use
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var user model.User
@@ -192,7 +192,7 @@ func (r *UserRepository) FindUserByID(id uuid.UUID) (*model.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	if rows.Next() {
 		err = rows.Scan(

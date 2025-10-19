@@ -211,7 +211,7 @@ func (r *AuthRepository) VerifySession(user_id uuid.UUID, token string) (*model.
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	if rows.Next() {
 		err = rows.Scan(

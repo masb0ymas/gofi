@@ -88,7 +88,7 @@ func (h *UploadHandler) CreateUpload(c *fiber.Ctx) error {
 	if err != nil {
 		return lib.SendInternalServerErrorResponse(c, fmt.Errorf("failed to open file: %w", err))
 	}
-	defer fileData.Close()
+	defer func() { _ = fileData.Close() }()
 
 	keyFile := fmt.Sprintf("uploads/%s", uuid.New().String())
 	newFilename := fmt.Sprintf("%s-%s", keyFile, file.Filename)
@@ -142,7 +142,7 @@ func (h *UploadHandler) CreateUploadPublicView(c *fiber.Ctx) error {
 	if err != nil {
 		return lib.SendInternalServerErrorResponse(c, fmt.Errorf("failed to open file: %w", err))
 	}
-	defer fileData.Close()
+	defer func() { _ = fileData.Close() }()
 
 	keyFile := fmt.Sprintf("%s/%s", *dirPath, uuid.New().String())
 	newFilename := fmt.Sprintf("%s-%s", keyFile, file.Filename)
@@ -195,7 +195,7 @@ func (h *UploadHandler) UpdateUpload(c *fiber.Ctx) error {
 	if err != nil {
 		return lib.SendInternalServerErrorResponse(c, fmt.Errorf("failed to open file: %w", err))
 	}
-	defer fileData.Close()
+	defer func() { _ = fileData.Close() }()
 
 	keyFile := fmt.Sprintf("uploads/%s", uuid.New().String())
 	newFilename := fmt.Sprintf("%s-%s", keyFile, file.Filename)

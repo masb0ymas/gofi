@@ -51,7 +51,7 @@ func InitGCS() {
 	if err != nil {
 		panic(err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// client to bucket
 	bucket := client.Bucket(config.Bucket)

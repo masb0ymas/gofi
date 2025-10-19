@@ -26,7 +26,7 @@ func main() {
 	if err := database.Connect(); err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
-	defer database.DB.Close()
+	defer func() { _ = database.DB.Close() }()
 
 	// Initial Provider
 	// lib.InitGCS()
