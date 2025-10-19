@@ -12,6 +12,10 @@ CMD_AIR=./bin/air # for linux / macos
 # CMD_MIGRATE=./bin/migrate # local golang-migrate
 CMD_MIGRATE=migrate # global golang-migrate
 
+# command gosec
+CMD_GOSEC=./bin/gosec # local gosec
+# CMD_GOSEC=gosec # global gosec
+
 # build dir
 BUILD_DIR=./cmd
 
@@ -62,6 +66,11 @@ deps/update:
 .PHONY: lint
 lint:
 	golangci-lint run
+
+## security: scan the code for security vulnerabilities
+.PHONY: security
+security:
+	$(CMD_GOSEC) ./...
 
 ## dev: run the application in development mode
 .PHONY: dev
