@@ -3,7 +3,6 @@ module gofi
 go 1.24.0
 
 require (
-	github.com/MarceloPetrucio/go-scalar-api-reference v0.0.0-20240521013641-ce5d2efe0e06
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
