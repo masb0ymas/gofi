@@ -4,9 +4,11 @@ import (
 	"log/slog"
 
 	"gofi/internal/config"
+	"gofi/internal/repositories"
 )
 
 type Application struct {
-	Config config.Config
-	Logger *slog.Logger
+	Config       config.Config
+	Logger       *slog.Logger
+	Repositories repositories.Repositories
 }

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"gofi/internal/seeders"
 	"log"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -20,7 +22,7 @@ func main() {
 	}
 	defer db.Close()
 
-	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,6 +40,14 @@ func main() {
 	case modeRefresh:
 		migrateDown(migrate)
 		migrateUp(migrate)
+	}
+
+	if cfg.seed != "" {
+		s := []seeders.Seeder{
+			seeders.RoleSeeder{DB: db},
+		}
+
+		execSeeders(db, s...)
 	}
 
 	fmt.Println("Completed")
@@ -61,10 +71,11 @@ func migrateDown(m *migrate.Migrate) {
 	fmt.Println("Down migrations completed successfully")
 }
 
-// func execSeeders(db *sqlx.DB, seeders ...seeders.Seeder) {
-// 	for _, seeder := range seeders {
-// 		if err := seeder(db); err != nil {
-// 			log.Fatalf("failed to run seeders: %v", err)
-// 		}
-// 	}
-// }
+func execSeeders(db *sql.DB, seeders ...seeders.Seeder) {
+	for _, seeder := range seeders {
+		fmt.Printf("Running %s seeder...\n", seeder.Name())
+		seeder.Seed()
+	}
+
+	fmt.Println("Seeder completed successfully")
+}
