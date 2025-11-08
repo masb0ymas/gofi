@@ -7,104 +7,102 @@ set -e
 # Helper Functions
 # =============================================
 
-# Get the previous tag or create initial tag if none exists
-get_version_tags() {
-    echo "🔍 Checking version tags..."
-
-    local latest_tag=$(git describe --tags --abbrev=0 2>/dev/null)
+# Get the latest version tag from git
+# Returns v0.0.0 if no tags exist
+get_latest_version() {
+    echo "🔍 Checking latest version tag..."
     
+    local latest_tag=$(git describe --tags --abbrev=0 2>/dev/null)
     if [ -z "$latest_tag" ]; then
-        PREV_TAG=""
-        NEW_TAG="v0.0.1"
-        echo "⚠️  No previous tags found. Starting with v0.0.1"
+        echo "⚠️  No version tags found. Starting with v0.0.0"
+        echo "v0.0.0"
     else
-        PREV_TAG=$(git describe --tags --abbrev=0)
-        NEW_TAG=$(echo $PREV_TAG | awk -F. -v OFS=. '{++$NF} 1')
-        echo "✅ Previous tag found: $PREV_TAG"
+        echo "✅ Found latest version: $latest_tag"
+        echo "$latest_tag"
     fi
 }
 
-# Generate or update changelog content
-generate_changelog() {
-    echo "📝 Generating/updating changelog..."
-    
-    TEMP_CHANGELOG=$(mktemp)
-    
-    {
-        if [ -f CHANGELOG.md ]; then
-            sed '1,/^## /d' CHANGELOG.md > "$TEMP_CHANGELOG"
-        fi
-        
-        echo "# Changelog"
-        echo ""
-        echo "## $NEW_TAG ($(date +%Y-%m-%d))"
-        echo ""
-        
-        if [ -z "$PREV_TAG" ]; then
-            echo "📦 Initial release"
-            git log --pretty=format:"* %s" HEAD
-        else
-            echo "📦 Changes since $PREV_TAG:"
-            git log --pretty=format:"* %s" $PREV_TAG..HEAD
-        fi
-        
-        echo ""
-        
-        if [ -f "$TEMP_CHANGELOG" ]; then
-            cat "$TEMP_CHANGELOG"
-        fi
-    } > CHANGELOG.md
-    
-    rm -f "$TEMP_CHANGELOG"
-    
-    echo "✅ Changelog updated successfully"
-}
+# Bump version according to semver rules
+# Parameters:
+#   $1 - Current version (e.g., v1.2.3)
+#   $2 - Bump type (major, minor, or patch)
+bump_version() {
+    local current_version=$1
+    local bump_type=$2
 
-# Create and push new release
-create_release() {
-    echo "🚀 Creating new release..."
-    
-    # Stage and commit changelog
-    git add .
-    git commit -m "chore(release): bump to version $NEW_TAG"
-    
-    # Create and push tag
-    git tag -a "$NEW_TAG" -m "Release version $NEW_TAG"
-    git push origin "$NEW_TAG"
-    
-    # Push changes to main branch
-    git push origin main
+    # Split version string into major, minor, patch
+    IFS='.' read -r -a version_parts <<< "${current_version#v}"
+    local major=${version_parts[0]}
+    local minor=${version_parts[1]}
+    local patch=${version_parts[2]}
+
+    # Increment version based on bump type
+    case $bump_type in
+        "major")
+            echo "📈 Bumping major version..."
+            major=$((major + 1))
+            minor=0
+            patch=0
+            ;;
+        "minor")
+            echo "📈 Bumping minor version..."
+            minor=$((minor + 1))
+            patch=0
+            ;;
+        "patch")
+            echo "📈 Bumping patch version..."
+            patch=$((patch + 1))
+            ;;
+        *)
+            echo "❌ Error: Invalid bump type '$bump_type'. Must be major, minor, or patch"
+            exit 1
+            ;;
+    esac
+
+    echo "v${major}.${minor}.${patch}"
 }
 
 # =============================================
 # Main Script
 # =============================================
 
-echo "🎉 Starting release process..."
+echo "🚀 Starting version bump process..."
 echo "----------------------------------------"
 
-# Step 1: Get version tags
-get_version_tags
-
-# Step 2: Display version information
-echo -e "\n📋 Release Information"
-echo "----------------------------------------"
-echo "| Previous Release Tag  | ${PREV_TAG:-None}"
-echo "| New Release Tag       | $NEW_TAG"
+# Get current version
+latest_version=$(get_latest_version)
 echo "----------------------------------------"
 
-# Step 3: Generate changelog
-echo -e "\n📄 Changelog Generation"
-echo "----------------------------------------"
-generate_changelog
+# Analyze last commit message to determine bump type
+echo "📝 Analyzing last commit message..."
+last_commit_message=$(git log -1 --pretty=%B)
+echo "Last commit: $last_commit_message"
 
-# Step 4: Create and push release
-echo -e "\n📦 Release Creation"
-echo "----------------------------------------"
-create_release
+# Determine version bump type based on conventional commits
+# feat!: or fix!: = major bump
+# feat: = minor bump
+# everything else = patch bump
+if [[ "$last_commit_message" =~ ^(feat|fix|refactor|perf|revert)!: ]]; then
+    bump_type="major"
+    echo "🔥 Breaking change detected! Bumping major version"
+elif [[ "$last_commit_message" =~ ^feat: ]]; then
+    bump_type="minor"
+    echo "✨ New feature detected! Bumping minor version"
+else
+    bump_type="patch"
+    echo "🔧 Patch update! Bumping patch version"
+fi
 
-# Step 5: Completion
-echo -e "\n✨ Release completed successfully!"
-echo "🏷  New version: $NEW_TAG"
-echo "📚 Changelog has been updated"
-echo "🌟 All changes have been pushed to remote"
+echo "----------------------------------------"
+
+# Calculate new version
+new_version=$(bump_version "$latest_version" "$bump_type")
+echo "Version bump summary:"
+echo "From: $latest_version"
+echo "To:   $new_version"
+echo "----------------------------------------"
+
+# Uncomment the following line when ready to create the tag
+# git tag "$new_version"
+echo "✅ Version bump completed!"
+echo "💡 To create the tag, uncomment the git tag line in the script"
