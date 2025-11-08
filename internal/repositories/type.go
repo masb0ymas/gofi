@@ -17,3 +17,12 @@ type Executor interface {
 type Repositories struct {
 	Role RoleRepository
 }
+
+type QueryOptions struct {
+	Offset int64
+	Limit  int64
+}
+
+type PaginationMetadata struct {
+	Total int64 `json:"total"`
+}

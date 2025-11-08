@@ -18,6 +18,65 @@ type RoleRepository struct {
 	DB *sql.DB
 }
 
+func (r RoleRepository) Count() (int64, error) {
+	return r.CountExec(r.DB)
+}
+
+func (r RoleRepository) CountExec(exc Executor) (int64, error) {
+	query := `SELECT COUNT(*) FROM "roles";`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	row := exc.QueryRowContext(ctx, query)
+	if row == nil {
+		return 0, errtrace.New("error scanning row: no next row")
+	}
+
+	var count int64
+	if err := row.Scan(&count); err != nil {
+		return 0, errtrace.Errorf("error scanning row: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r RoleRepository) List() ([]*models.Role, PaginationMetadata, error) {
+	return r.ListExec(r.DB)
+}
+
+func (r RoleRepository) ListExec(exc Executor) ([]*models.Role, PaginationMetadata, error) {
+	selectFields := `"id", "name", "created_at", "updated_at"`
+	query := fmt.Sprintf(`
+		SELECT %s FROM "roles";
+	`, selectFields)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := exc.QueryContext(ctx, query)
+	if err != nil {
+		return nil, PaginationMetadata{}, errtrace.Wrap(err)
+	}
+	defer rows.Close()
+
+	var roles []*models.Role
+	for rows.Next() {
+		role := &models.Role{}
+		if err := rows.Scan(&role.ID, &role.Name, &role.CreatedAt, &role.UpdatedAt); err != nil {
+			return nil, PaginationMetadata{}, errtrace.Errorf("error scanning row: %w", err)
+		}
+		roles = append(roles, role)
+	}
+
+	count, err := r.CountExec(exc)
+	if err != nil {
+		return nil, PaginationMetadata{}, errtrace.Wrap(err)
+	}
+
+	return roles, PaginationMetadata{Total: count}, nil
+}
+
 func (r RoleRepository) Insert(roles ...*models.Role) error {
 	return r.InsertExec(r.DB, roles...)
 }

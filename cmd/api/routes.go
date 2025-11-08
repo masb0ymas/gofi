@@ -17,4 +17,6 @@ func routes(r *fiber.App, app *app.Application) {
 	})
 
 	r.Get("/healthcheck", h.Health.Check)
+
+	r.Get("/v1/roles", h.Role.Index)
 }
