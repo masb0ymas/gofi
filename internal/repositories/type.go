@@ -21,6 +21,9 @@ type Repositories struct {
 type QueryOptions struct {
 	Offset int64
 	Limit  int64
+
+	OrderBy string
+	Order   string // asc | desc
 }
 
 type PaginationMetadata struct {

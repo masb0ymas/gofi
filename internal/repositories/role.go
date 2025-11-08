@@ -41,20 +41,58 @@ func (r RoleRepository) CountExec(exc Executor) (int64, error) {
 	return count, nil
 }
 
-func (r RoleRepository) List() ([]*models.Role, PaginationMetadata, error) {
-	return r.ListExec(r.DB)
+func (r RoleRepository) List(opts *QueryOptions) ([]*models.Role, PaginationMetadata, error) {
+	return r.ListExec(r.DB, opts)
 }
 
-func (r RoleRepository) ListExec(exc Executor) ([]*models.Role, PaginationMetadata, error) {
+func (r RoleRepository) ListExec(exc Executor, opts *QueryOptions) ([]*models.Role, PaginationMetadata, error) {
 	selectFields := `"id", "name", "created_at", "updated_at"`
-	query := fmt.Sprintf(`
-		SELECT %s FROM "roles";
+	baseQuery := fmt.Sprintf(`
+		SELECT %s 
+		FROM "roles"
 	`, selectFields)
+
+	var args []any
+	argIndex := 1
+
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(baseQuery)
+
+	orderBy := `"created_at"`
+	order := "DESC"
+
+	if opts.OrderBy != "" {
+		orderBy = opts.OrderBy
+	}
+
+	if opts.Order != "" {
+		upperOrder := strings.ToUpper(opts.Order)
+		if upperOrder != "ASC" && upperOrder != "DESC" {
+			return nil, PaginationMetadata{}, errtrace.New("invalid order")
+		}
+		order = upperOrder
+	}
+
+	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY %s %s", orderBy, order))
+
+	if opts.Limit > 0 {
+		queryBuilder.WriteString(fmt.Sprintf(" LIMIT $%d", argIndex))
+		args = append(args, opts.Limit)
+		argIndex++
+	}
+
+	if opts.Offset > 0 {
+		queryBuilder.WriteString(fmt.Sprintf(" OFFSET $%d", argIndex))
+		args = append(args, opts.Offset)
+		argIndex++
+	}
+
+	query := queryBuilder.String()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := exc.QueryContext(ctx, query)
+	rows, err := exc.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, PaginationMetadata{}, errtrace.Wrap(err)
 	}
