@@ -1,3 +1,14 @@
 # Environment
 .envrc
 .env
+
+# directory
+/migrations
+/tmp
+/build
+/dist
+
+# misc
+/coverage
+.idea
+.DS_Store
