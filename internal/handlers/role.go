@@ -9,6 +9,7 @@ import (
 	"gofi/internal/repositories"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type roleHandler struct {
@@ -44,8 +45,30 @@ func (h *roleHandler) Index(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"message": "data has been retrieved successfully",
+		"message": "list data has been retrieved successfully",
 		"data":    roles,
 		"meta":    meta,
+	})
+}
+
+func (h *roleHandler) Show(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("roleID"))
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid role id must be uuid format",
+			"error":   err.Error(),
+		})
+	}
+
+	role, err := h.app.Repositories.Role.Get(id)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"message": "data has been retrieved successfully",
+		"data":    role,
 	})
 }

@@ -58,8 +58,6 @@ func migrateUp(m *migrate.Migrate) {
 	if err := m.Up(); err != nil {
 		log.Fatalf("failed to run up migrations: %v", err)
 	}
-
-	fmt.Println("Up migrations completed successfully")
 }
 
 func migrateDown(m *migrate.Migrate) {
@@ -67,8 +65,6 @@ func migrateDown(m *migrate.Migrate) {
 	if err := m.Down(); err != nil {
 		log.Fatalf("failed to run down migrations: %v", err)
 	}
-
-	fmt.Println("Down migrations completed successfully")
 }
 
 func execSeeders(db *sql.DB, seeders ...seeders.Seeder) {
@@ -76,6 +72,4 @@ func execSeeders(db *sql.DB, seeders ...seeders.Seeder) {
 		fmt.Printf("Running %s seeder...\n", seeder.Name())
 		seeder.Seed()
 	}
-
-	fmt.Println("Seeder completed successfully")
 }

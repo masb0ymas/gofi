@@ -11,6 +11,7 @@ import (
 	"gofi/internal/models"
 
 	"braces.dev/errtrace"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
@@ -113,6 +114,33 @@ func (r RoleRepository) ListExec(exc Executor, opts *QueryOptions) ([]*models.Ro
 	}
 
 	return roles, PaginationMetadata{Total: count}, nil
+}
+
+func (r RoleRepository) Get(id uuid.UUID) (*models.Role, error) {
+	return r.GetExec(r.DB, id)
+}
+
+func (r RoleRepository) GetExec(exc Executor, id uuid.UUID) (*models.Role, error) {
+	query := `
+		SELECT "id", "name", "created_at", "updated_at"
+		FROM "roles"
+		WHERE "id" = $1;
+	`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	row := exc.QueryRowContext(ctx, query, id)
+	if row == nil {
+		return nil, errtrace.New("error scanning row: no next row")
+	}
+
+	role := &models.Role{}
+	if err := row.Scan(&role.ID, &role.Name, &role.CreatedAt, &role.UpdatedAt); err != nil {
+		return nil, errtrace.Errorf("error scanning row: %w", err)
+	}
+
+	return role, nil
 }
 
 func (r RoleRepository) Insert(roles ...*models.Role) error {
