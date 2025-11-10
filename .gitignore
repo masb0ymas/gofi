@@ -3,7 +3,6 @@
 .env
 
 # directory
-/migrations
 /tmp
 /build
 /dist
