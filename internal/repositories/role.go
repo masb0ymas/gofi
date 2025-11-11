@@ -20,10 +20,10 @@ type RoleRepository struct {
 }
 
 func (r RoleRepository) Count() (int64, error) {
-	return r.CountExec(r.DB)
+	return r.countExec(r.DB)
 }
 
-func (r RoleRepository) CountExec(exc Executor) (int64, error) {
+func (r RoleRepository) countExec(exc Executor) (int64, error) {
 	query := `SELECT COUNT(*) FROM "roles";`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -43,14 +43,15 @@ func (r RoleRepository) CountExec(exc Executor) (int64, error) {
 }
 
 func (r RoleRepository) List(opts *QueryOptions) ([]*models.Role, PaginationMetadata, error) {
-	return r.ListExec(r.DB, opts)
+	return r.listExec(r.DB, opts)
 }
 
-func (r RoleRepository) ListExec(exc Executor, opts *QueryOptions) ([]*models.Role, PaginationMetadata, error) {
+func (r RoleRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Role, PaginationMetadata, error) {
 	selectFields := `"id", "name", "created_at", "updated_at"`
 	baseQuery := fmt.Sprintf(`
 		SELECT %s 
 		FROM "roles"
+		WHERE "deleted_at" IS NULL
 	`, selectFields)
 
 	var args []any
@@ -108,7 +109,7 @@ func (r RoleRepository) ListExec(exc Executor, opts *QueryOptions) ([]*models.Ro
 		roles = append(roles, role)
 	}
 
-	count, err := r.CountExec(exc)
+	count, err := r.Count()
 	if err != nil {
 		return nil, PaginationMetadata{}, errtrace.Wrap(err)
 	}
@@ -117,10 +118,10 @@ func (r RoleRepository) ListExec(exc Executor, opts *QueryOptions) ([]*models.Ro
 }
 
 func (r RoleRepository) Get(id uuid.UUID) (*models.Role, error) {
-	return r.GetExec(r.DB, id)
+	return r.getExec(r.DB, id)
 }
 
-func (r RoleRepository) GetExec(exc Executor, id uuid.UUID) (*models.Role, error) {
+func (r RoleRepository) getExec(exc Executor, id uuid.UUID) (*models.Role, error) {
 	query := `
 		SELECT "id", "name", "created_at", "updated_at"
 		FROM "roles"
@@ -144,10 +145,10 @@ func (r RoleRepository) GetExec(exc Executor, id uuid.UUID) (*models.Role, error
 }
 
 func (r RoleRepository) Insert(roles ...*models.Role) error {
-	return r.InsertExec(r.DB, roles...)
+	return r.insertExec(r.DB, roles...)
 }
 
-func (r RoleRepository) InsertExec(exc Executor, roles ...*models.Role) error {
+func (r RoleRepository) insertExec(exc Executor, roles ...*models.Role) error {
 	if len(roles) == 0 {
 		return nil
 	}
@@ -173,7 +174,7 @@ func (r RoleRepository) InsertExec(exc Executor, roles ...*models.Role) error {
 		INSERT INTO "roles" (%s)
 		VALUES %s
 		RETURNING "id", "created_at", "updated_at";
-	`, strings.Join(columns[:], ","), strings.Join(valueStrings, ","))
+	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -197,6 +198,146 @@ func (r RoleRepository) InsertExec(exc Executor, roles ...*models.Role) error {
 		if err := rows.Scan(&role.ID, &role.CreatedAt, &role.UpdatedAt); err != nil {
 			return errtrace.Errorf("error scanning row: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (r RoleRepository) Update(id uuid.UUID, role *models.Role) error {
+	return r.updateExec(r.DB, id, role)
+}
+
+func (r RoleRepository) updateExec(exc Executor, id uuid.UUID, role *models.Role) error {
+	query := `
+		UPDATE "roles"
+		SET "name" = $1, "updated_at" = now()
+		WHERE "id" = $2;
+	`
+
+	args := []any{
+		role.Name,
+		id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := exc.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrEditConflict
+	}
+
+	return nil
+}
+
+func (r RoleRepository) Delete(id uuid.UUID) error {
+	return r.deleteExec(r.DB, id)
+}
+
+func (r RoleRepository) deleteExec(exc Executor, id uuid.UUID) error {
+	query := `
+		DELETE FROM "roles"
+		WHERE "id" = $1;
+	`
+
+	args := []any{
+		id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := exc.ExecContext(ctx, query, args...)
+	if err != nil {
+		return errtrace.Wrap(err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r RoleRepository) SoftDelete(id uuid.UUID) error {
+	return r.softDeleteExec(r.DB, id)
+}
+
+func (r RoleRepository) softDeleteExec(exc Executor, id uuid.UUID) error {
+	query := `
+		UPDATE "roles"
+		SET "deleted_at" = now()
+		WHERE "id" = $1;
+	`
+
+	args := []any{
+		id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := exc.ExecContext(ctx, query, args...)
+	if err != nil {
+		return errtrace.Wrap(err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r RoleRepository) Restore(id uuid.UUID) error {
+	return r.restoreExec(r.DB, id)
+}
+
+func (r RoleRepository) restoreExec(exc Executor, id uuid.UUID) error {
+	query := `
+		UPDATE "roles"
+		SET "deleted_at" = NULL
+		WHERE "id" = $1;
+	`
+
+	args := []any{
+		id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := exc.ExecContext(ctx, query, args...)
+	if err != nil {
+		return errtrace.Wrap(err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
 	}
 
 	return nil

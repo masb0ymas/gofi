@@ -20,4 +20,9 @@ func routes(r *fiber.App, app *app.Application) {
 
 	r.Get("/v1/roles", h.Role.Index)
 	r.Get("/v1/roles/:roleID", h.Role.Show)
+	r.Post("/v1/roles", h.Role.Create)
+	r.Put("/v1/roles/:roleID", h.Role.Update)
+	r.Delete("/v1/roles/:roleID", h.Role.Delete)
+	r.Delete("/v1/roles/:roleID/soft-delete", h.Role.SoftDelete)
+	r.Patch("/v1/roles/:roleID/restore", h.Role.Restore)
 }

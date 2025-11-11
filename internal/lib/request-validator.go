@@ -53,3 +53,12 @@ func ValidateRequestQuery(c *fiber.Ctx, obj Validatable) error {
 
 	return ValidateStruct(obj)
 }
+
+func ValidateRequestBody(c *fiber.Ctx, obj Validatable) error {
+	err := c.BodyParser(obj)
+	if err != nil {
+		return err
+	}
+
+	return ValidateStruct(obj)
+}
