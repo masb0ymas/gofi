@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gofi/internal/app"
+	"gofi/internal/docs"
 	"gofi/internal/lib/constant"
 
 	"github.com/gofiber/fiber/v2"
@@ -66,6 +67,11 @@ func serve(app *app.Application) error {
 	}))
 
 	server.Static("/", "./public")
+
+	// generate api-docs with scalar
+	if app.Config.App.Env != "production" {
+		docs.SetupDocsRoutes(server, app)
+	}
 
 	// Initial Routes
 	routes(server, app)
