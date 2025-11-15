@@ -83,11 +83,9 @@ func (h *roleHandler) Create(c *fiber.Ctx) error {
 	var dto dto.RoleCreate
 
 	if err := lib.ValidateRequestBody(c, &dto); err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *lib.ErrValidationFailed:
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-				"message": err.Error(),
-			})
+			return c.Status(http.StatusBadRequest).JSON(lib.WrapValidationError(e.MessageRecord))
 		default:
 			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 				"message": err.Error(),
@@ -135,11 +133,9 @@ func (h *roleHandler) Update(c *fiber.Ctx) error {
 	var dto dto.RoleUpdate
 
 	if err := lib.ValidateRequestBody(c, &dto); err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *lib.ErrValidationFailed:
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-				"message": err.Error(),
-			})
+			return c.Status(http.StatusBadRequest).JSON(lib.WrapValidationError(e.MessageRecord))
 		default:
 			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 				"message": err.Error(),

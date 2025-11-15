@@ -62,3 +62,10 @@ func ValidateRequestBody(c *fiber.Ctx, obj Validatable) error {
 
 	return ValidateStruct(obj)
 }
+
+func WrapValidationError(mr validator.MessageRecord) map[string]interface{} {
+	return map[string]interface{}{
+		"message": "validation failed",
+		"errors":  mr,
+	}
+}

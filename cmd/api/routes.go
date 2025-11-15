@@ -25,4 +25,11 @@ func routes(r *fiber.App, app *app.Application) {
 	r.Delete("/v1/roles/:roleID", h.Role.Delete)
 	r.Delete("/v1/roles/:roleID/soft-delete", h.Role.SoftDelete)
 	r.Patch("/v1/roles/:roleID/restore", h.Role.Restore)
+
+	// Not found handler
+	r.Get("*", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "Sorry, HTTP resource you are looking for was not found.",
+		})
+	})
 }
