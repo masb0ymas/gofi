@@ -21,27 +21,21 @@ func routes(r *fiber.App, app *app.Application) {
 
 	r.Get("/healthcheck", h.Health.Check)
 
-	// Public routes
 	r.Get("/v1/roles", h.Role.Index)
 	r.Get("/v1/roles/:roleID", h.Role.Show)
+	r.Post("/v1/roles", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.Create)
+	r.Put("/v1/roles/:roleID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.Update)
+	r.Delete("/v1/roles/:roleID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.Delete)
+	r.Delete("/v1/roles/:roleID/soft-delete", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.SoftDelete)
+	r.Patch("/v1/roles/:roleID/restore", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.Restore)
 
-	// Admin protected routes
-	adminAuthorized := r.Group("/")
-	adminAuthorized.Use(m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}))
-
-	adminAuthorized.Post("/v1/roles", h.Role.Create)
-	adminAuthorized.Put("/v1/roles/:roleID", h.Role.Update)
-	adminAuthorized.Delete("/v1/roles/:roleID", h.Role.Delete)
-	adminAuthorized.Delete("/v1/roles/:roleID/soft-delete", h.Role.SoftDelete)
-	adminAuthorized.Patch("/v1/roles/:roleID/restore", h.Role.Restore)
-
-	adminAuthorized.Get("/v1/users", h.User.Index)
-	adminAuthorized.Get("/v1/users/:userID", h.User.Show)
-	adminAuthorized.Post("/v1/users", h.User.Create)
-	adminAuthorized.Put("/v1/users/:userID", h.User.Update)
-	adminAuthorized.Delete("/v1/users/:userID", h.User.Delete)
-	adminAuthorized.Delete("/v1/users/:userID/soft-delete", h.User.SoftDelete)
-	adminAuthorized.Patch("/v1/users/:userID/restore", h.User.Restore)
+	r.Get("/v1/users", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Index)
+	r.Get("/v1/users/:userID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Show)
+	r.Post("/v1/users", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Create)
+	r.Put("/v1/users/:userID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Update)
+	r.Delete("/v1/users/:userID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Delete)
+	r.Delete("/v1/users/:userID/soft-delete", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.SoftDelete)
+	r.Patch("/v1/users/:userID/restore", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Restore)
 
 	// Not found handler
 	r.Get("*", func(c *fiber.Ctx) error {
