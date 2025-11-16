@@ -22,6 +22,8 @@ run:
 		--debug=$(DEBUG) \
 		--env=$(ENV) \
 		--port=$(PORT) \
+		--app-name=$(APP_NAME) \
+		--jwt-secret=$(JWT_SECRET) \
 		--db-dsn=$(DB_DSN) \
 		--db-max-open-conns=$(DB_MAX_OPEN_CONNS) \
 		--db-max-idle-conns=$(DB_MAX_IDLE_CONNS) \

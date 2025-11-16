@@ -16,6 +16,8 @@ func parseFlag(cfg *config.Config) {
 	flag.StringVar(&cfg.App.Env, "env", "development", "Environment")
 	flag.BoolVar(&cfg.App.Debug, "debug", false, "Debug mode")
 	flag.IntVar(&cfg.App.Port, "port", 8080, "Port")
+	flag.StringVar(&cfg.App.Name, "app-name", "gofi", "App Name")
+	flag.StringVar(&cfg.App.JWTSecret, "jwt-secret", "", "JWT Secret")
 
 	// Database
 	flag.StringVar(&cfg.DB.DSN, "db-dsn", "", "Database DSN")
@@ -43,6 +45,10 @@ func validateFlag(cfg *config.Config) {
 
 	if cfg.App.MachineID == 0 {
 		log.Fatal("flag machine-id must be provided and cannot be 0")
+	}
+
+	if cfg.App.JWTSecret == "" {
+		log.Fatal("flag jwt-secret must be provided")
 	}
 
 	if cfg.DB.DSN == "" {
