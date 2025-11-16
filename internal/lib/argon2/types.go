@@ -9,3 +9,7 @@ type argonConfig struct {
 	Memory     uint32
 	Parallel   uint8
 }
+
+func New() *Argon2 {
+	return &Argon2{}
+}
