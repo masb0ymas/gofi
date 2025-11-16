@@ -15,7 +15,9 @@ type Executor interface {
 }
 
 type Repositories struct {
-	Role RoleRepository
+	Role    RoleRepository
+	User    UserRepository
+	Session SessionRepository
 }
 
 type QueryOptions struct {
