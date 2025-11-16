@@ -16,6 +16,7 @@ require (
 require (
 	braces.dev/errtrace v0.4.0
 	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lib/pq v1.10.9
