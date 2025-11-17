@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -131,14 +132,15 @@ func (r RoleRepository) getExec(exc Executor, id uuid.UUID) (*models.Role, error
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	row := exc.QueryRowContext(ctx, query, id)
-	if row == nil {
-		return nil, errtrace.New("error scanning row: no next row")
-	}
-
 	role := &models.Role{}
-	if err := row.Scan(&role.ID, &role.Name, &role.CreatedAt, &role.UpdatedAt); err != nil {
-		return nil, errtrace.Errorf("error scanning row: %w", err)
+	err := exc.QueryRowContext(ctx, query, id).Scan(&role.ID, &role.Name, &role.CreatedAt, &role.UpdatedAt)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, errtrace.Errorf("error scanning row: %w", err)
+		}
 	}
 
 	return role, nil

@@ -12,6 +12,8 @@ type ConfigApp struct {
 	Debug     bool
 	Port      int
 	MachineID uint16
+	Name      string
+	JWTSecret string
 }
 
 type ConfigDB struct {

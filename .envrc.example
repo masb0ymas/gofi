@@ -5,6 +5,9 @@ export MACHINE_ID=1
 export DEBUG=true
 export ENV=development
 export PORT=8080
+export APP_NAME=gofi
+
+export JWT_SECRET=
 
 # Database
 export DB_DSN="postgres://postgres:postgres@localhost:5432/gofi?sslmode=disable"

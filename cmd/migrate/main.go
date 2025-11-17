@@ -45,6 +45,7 @@ func main() {
 	if cfg.seed != "" {
 		s := []seeders.Seeder{
 			seeders.RoleSeeder{DB: db},
+			seeders.UserSeeder{DB: db},
 		}
 
 		execSeeders(db, s...)

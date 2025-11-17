@@ -14,12 +14,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type roleHandler struct {
+type userHandler struct {
 	app *app.Application
 }
 
-func (h *roleHandler) Index(c *fiber.Ctx) error {
-	var dto dto.RolePagination
+func (h *userHandler) Index(c *fiber.Ctx) error {
+	var dto dto.UserPagination
 
 	if err := lib.ValidateRequestQuery(c, &dto); err != nil {
 		switch e := err.(type) {
@@ -37,7 +37,7 @@ func (h *roleHandler) Index(c *fiber.Ctx) error {
 		Limit:  dto.Limit,
 	}
 
-	roles, meta, err := h.app.Repositories.Role.List(opts)
+	users, meta, err := h.app.Repositories.User.List(opts)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -45,16 +45,16 @@ func (h *roleHandler) Index(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(
-		types.ResponseMultiData[*models.Role]{
+		types.ResponseMultiData[*models.User]{
 			Message: "list data has been retrieved successfully",
-			Data:    roles,
+			Data:    users,
 			Meta: fiber.Map{
 				"total": meta.Total,
 			},
 		})
 }
 
-func (h *roleHandler) Show(c *fiber.Ctx) error {
+func (h *userHandler) Show(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("roleID"))
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
@@ -63,7 +63,7 @@ func (h *roleHandler) Show(c *fiber.Ctx) error {
 		})
 	}
 
-	role, err := h.app.Repositories.Role.Get(id)
+	user, err := h.app.Repositories.User.Get(id)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -71,14 +71,14 @@ func (h *roleHandler) Show(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(
-		types.ResponseSingleData[*models.Role]{
+		types.ResponseSingleData[*models.User]{
 			Message: "get data has been retrieved successfully",
-			Data:    role,
+			Data:    user,
 		})
 }
 
-func (h *roleHandler) Create(c *fiber.Ctx) error {
-	var dto dto.RoleCreate
+func (h *userHandler) Create(c *fiber.Ctx) error {
+	var dto dto.UserCreate
 
 	if err := lib.ValidateRequestBody(c, &dto); err != nil {
 		switch e := err.(type) {
@@ -91,21 +91,27 @@ func (h *roleHandler) Create(c *fiber.Ctx) error {
 		}
 	}
 
-	roleID, err := uuid.NewV7()
+	userID, err := uuid.NewV7()
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
 		})
 	}
 
-	role := &models.Role{
+	user := &models.User{
 		Base: models.Base{
-			ID: roleID,
+			ID: userID,
 		},
-		Name: dto.Name,
+		FirstName: dto.FirstName,
+		LastName:  dto.LastName,
+		Email:     dto.Email,
+		Phone:     dto.Phone,
+		Password:  dto.Password,
+		RoleID:    dto.RoleID,
+		UploadID:  dto.UploadID,
 	}
 
-	err = h.app.Repositories.Role.Insert(role)
+	err = h.app.Repositories.User.Insert(user)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -113,22 +119,22 @@ func (h *roleHandler) Create(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(
-		types.ResponseSingleData[*models.Role]{
+		types.ResponseSingleData[*models.User]{
 			Message: "data has been created successfully",
-			Data:    role,
+			Data:    user,
 		})
 }
 
-func (h *roleHandler) Update(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+func (h *userHandler) Update(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("userID"))
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid role id must be uuid format",
+			"message": "invalid user id must be uuid format",
 			"error":   err.Error(),
 		})
 	}
 
-	var dto dto.RoleUpdate
+	var dto dto.UserUpdate
 
 	if err := lib.ValidateRequestBody(c, &dto); err != nil {
 		switch e := err.(type) {
@@ -141,18 +147,30 @@ func (h *roleHandler) Update(c *fiber.Ctx) error {
 		}
 	}
 
-	role, err := h.app.Repositories.Role.Get(id)
+	user, err := h.app.Repositories.User.Get(id)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
 		})
 	}
 
-	if dto.Name != "" {
-		role.Name = dto.Name
+	if dto.FirstName != "" {
+		user.FirstName = dto.FirstName
 	}
 
-	err = h.app.Repositories.Role.Update(id, role)
+	if dto.LastName != nil {
+		user.LastName = dto.LastName
+	}
+
+	if dto.Phone != nil {
+		user.Phone = dto.Phone
+	}
+
+	if dto.UploadID != nil {
+		user.UploadID = dto.UploadID
+	}
+
+	err = h.app.Repositories.User.Update(id, user)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -160,22 +178,22 @@ func (h *roleHandler) Update(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(
-		types.ResponseSingleData[*models.Role]{
+		types.ResponseSingleData[*models.User]{
 			Message: "data has been updated successfully",
-			Data:    role,
+			Data:    user,
 		})
 }
 
-func (h *roleHandler) Delete(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+func (h *userHandler) Delete(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("userID"))
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid role id must be uuid format",
+			"message": "invalid user id must be uuid format",
 			"error":   err.Error(),
 		})
 	}
 
-	err = h.app.Repositories.Role.Delete(id)
+	err = h.app.Repositories.User.Delete(id)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -183,21 +201,21 @@ func (h *roleHandler) Delete(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(
-		types.ResponseSingleData[*models.Role]{
+		types.ResponseSingleData[*models.User]{
 			Message: "data has been deleted successfully",
 		})
 }
 
-func (h *roleHandler) SoftDelete(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+func (h *userHandler) SoftDelete(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("userID"))
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid role id must be uuid format",
+			"message": "invalid user id must be uuid format",
 			"error":   err.Error(),
 		})
 	}
 
-	err = h.app.Repositories.Role.SoftDelete(id)
+	err = h.app.Repositories.User.SoftDelete(id)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -205,21 +223,21 @@ func (h *roleHandler) SoftDelete(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(
-		types.ResponseSingleData[*models.Role]{
+		types.ResponseSingleData[*models.User]{
 			Message: "data has been soft deleted successfully",
 		})
 }
 
-func (h *roleHandler) Restore(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+func (h *userHandler) Restore(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("userID"))
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid role id must be uuid format",
+			"message": "invalid user id must be uuid format",
 			"error":   err.Error(),
 		})
 	}
 
-	err = h.app.Repositories.Role.Restore(id)
+	err = h.app.Repositories.User.Restore(id)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -227,7 +245,7 @@ func (h *roleHandler) Restore(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(
-		types.ResponseSingleData[*models.Role]{
+		types.ResponseSingleData[*models.User]{
 			Message: "data has been restored successfully",
 		})
 }

@@ -24,13 +24,13 @@ func (s RoleSeeder) Seed() {
 			Base: models.Base{
 				ID: uuid.MustParse(constant.RoleAdmin),
 			},
-			Name: "admin",
+			Name: "Admin",
 		},
 		{
 			Base: models.Base{
 				ID: uuid.MustParse(constant.RoleUser),
 			},
-			Name: "user",
+			Name: "User",
 		},
 	}
 
