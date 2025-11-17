@@ -33,7 +33,7 @@ func main() {
 	app := &app.Application{
 		Config:       cfg,
 		Logger:       logger,
-		Repositories: repositories.New(db.DB),
+		Repositories: repositories.New(db),
 	}
 
 	if err := serve(app); err != nil {

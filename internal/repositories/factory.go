@@ -8,10 +8,10 @@ type Repositories struct {
 	Session SessionRepository
 }
 
-func New(DB *sql.DB) Repositories {
+func New(db *sql.DB) Repositories {
 	return Repositories{
-		Role:    RoleRepository{DB: DB},
-		User:    UserRepository{DB: DB},
-		Session: SessionRepository{DB: DB},
+		Role:    RoleRepository{BaseRepository: BaseRepository{DB: db, TableName: "roles"}},
+		User:    UserRepository{BaseRepository: BaseRepository{DB: db, TableName: "users"}},
+		Session: SessionRepository{DB: db},
 	}
 }

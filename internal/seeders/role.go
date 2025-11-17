@@ -34,7 +34,12 @@ func (s RoleSeeder) Seed() {
 		},
 	}
 
-	roleRepo := repositories.RoleRepository{DB: s.DB}
+	roleRepo := repositories.RoleRepository{
+		BaseRepository: repositories.BaseRepository{
+			DB:        s.DB,
+			TableName: "roles",
+		},
+	}
 	err := roleRepo.Insert(roles...)
 	if err != nil {
 		panic(NewErrSeedingFailed(err))
