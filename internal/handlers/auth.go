@@ -138,13 +138,28 @@ func (r *authHandler) SignIn(c *fiber.Ctx) error {
 }
 
 func (r *authHandler) VerifySession(c *fiber.Ctx) error {
+	uid, err := lib.ContextGetUID(c)
+	if err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	user, err := r.app.Repositories.User.Get(uid)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"message": "Hello, World!",
+		"message": "Verify session successfully",
+		"data":    user,
 	})
 }
 
 func (r *authHandler) SignOut(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"message": "Hello, World!",
+		"message": "Sign out successfully",
 	})
 }

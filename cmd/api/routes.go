@@ -23,8 +23,8 @@ func routes(r *fiber.App, app *app.Application) {
 
 	r.Post("/v1/auth/sign-up", h.Auth.SignUp)
 	r.Post("/v1/auth/sign-in", h.Auth.SignIn)
-	r.Get("/v1/auth/verify-session", h.Auth.VerifySession)
-	r.Post("/v1/auth/sign-out", h.Auth.SignOut)
+	r.Get("/v1/auth/verify-session", m.Authorization(), h.Auth.VerifySession)
+	r.Post("/v1/auth/sign-out", m.Authorization(), h.Auth.SignOut)
 
 	r.Get("/v1/roles", h.Role.Index)
 	r.Get("/v1/roles/:roleID", h.Role.Show)
