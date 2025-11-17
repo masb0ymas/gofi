@@ -21,6 +21,11 @@ func routes(r *fiber.App, app *app.Application) {
 
 	r.Get("/healthcheck", h.Health.Check)
 
+	r.Post("/v1/auth/sign-up", h.Auth.SignUp)
+	r.Post("/v1/auth/sign-in", h.Auth.SignIn)
+	r.Get("/v1/auth/verify-session", h.Auth.VerifySession)
+	r.Post("/v1/auth/sign-out", h.Auth.SignOut)
+
 	r.Get("/v1/roles", h.Role.Index)
 	r.Get("/v1/roles/:roleID", h.Role.Show)
 	r.Post("/v1/roles", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.Create)
@@ -29,8 +34,8 @@ func routes(r *fiber.App, app *app.Application) {
 	r.Delete("/v1/roles/:roleID/soft-delete", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.SoftDelete)
 	r.Patch("/v1/roles/:roleID/restore", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.Role.Restore)
 
-	r.Get("/v1/users", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Index)
-	r.Get("/v1/users/:userID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Show)
+	r.Get("/v1/users", h.User.Index)
+	r.Get("/v1/users/:userID", h.User.Show)
 	r.Post("/v1/users", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Create)
 	r.Put("/v1/users/:userID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Update)
 	r.Delete("/v1/users/:userID", m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}), h.User.Delete)

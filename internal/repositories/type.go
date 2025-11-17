@@ -14,12 +14,6 @@ type Executor interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
-type Repositories struct {
-	Role    RoleRepository
-	User    UserRepository
-	Session SessionRepository
-}
-
 type QueryOptions struct {
 	Offset int64
 	Limit  int64

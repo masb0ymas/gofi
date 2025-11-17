@@ -31,11 +31,9 @@ func main() {
 	defer db.Close()
 
 	app := &app.Application{
-		Config: cfg,
-		Logger: logger,
-		Repositories: repositories.Repositories{
-			Role: repositories.RoleRepository{DB: db},
-		},
+		Config:       cfg,
+		Logger:       logger,
+		Repositories: repositories.New(db.DB),
 	}
 
 	if err := serve(app); err != nil {

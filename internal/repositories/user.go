@@ -48,7 +48,7 @@ func (r UserRepository) List(opts *QueryOptions) ([]*models.User, PaginationMeta
 }
 
 func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.User, PaginationMetadata, error) {
-	selectFields := `"u"."id", "u"."first_name", "u"."last_name", "u"."email", "u"."phone", "u"."active_at", "u"."blocked_at", "u"."role_id", "u"."upload_id", "u"."created_at", "u"."updated_at"`
+	selectFields := `"u"."id", "u"."created_at", "u"."updated_at", "u"."deleted_at", "u"."first_name", "u"."last_name", "u"."email", "u"."phone", "u"."active_at", "u"."blocked_at", "u"."role_id", "u"."upload_id"`
 	selectRoleFields := `"r"."id", "r"."name", "r"."created_at", "r"."updated_at"`
 	baseQuery := fmt.Sprintf(`
 		SELECT %s, %s
@@ -110,6 +110,9 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 
 		err = rows.Scan(
 			&user.ID,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+			&user.DeletedAt,
 			&user.FirstName,
 			&user.LastName,
 			&user.Email,
@@ -118,8 +121,6 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 			&user.BlockedAt,
 			&user.RoleID,
 			&user.UploadID,
-			&user.CreatedAt,
-			&user.UpdatedAt,
 			&role.ID,
 			&role.Name,
 			&role.CreatedAt,
@@ -208,7 +209,13 @@ func (r UserRepository) getByIDExec(exc Executor, id uuid.UUID) (*models.User, e
 	defer cancel()
 
 	user := &models.User{}
-	err := exc.QueryRowContext(ctx, query, id).Scan(&user.ID, &user.Email, &user.ActiveAt, &user.BlockedAt, &user.RoleID)
+	err := exc.QueryRowContext(ctx, query, id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.ActiveAt,
+		&user.BlockedAt,
+		&user.RoleID,
+	)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -221,13 +228,59 @@ func (r UserRepository) getByIDExec(exc Executor, id uuid.UUID) (*models.User, e
 	return user, nil
 }
 
-func (r UserRepository) Insert(users ...*models.User) error {
-	for _, user := range users {
-		if err := user.BeforeCreate(); err != nil {
-			return err
+func (r UserRepository) GetByEmail(email string) (*models.User, error) {
+	return r.getByEmailExec(r.DB, email)
+}
+
+func (r UserRepository) getByEmailExec(exc Executor, email string) (*models.User, error) {
+	query := `
+		SELECT "u"."id", "u"."created_at", "u"."updated_at", "u"."deleted_at", "u"."first_name", "u"."last_name", "u"."email", "u"."phone", "u"."password", "u"."active_at", "u"."blocked_at", "u"."role_id", "u"."upload_id"
+		FROM "users" AS "u"
+		WHERE "u"."email" = $1 AND
+				"u"."active_at" IS NOT NULL AND
+				"u"."blocked_at" IS NULL AND
+				"u"."deleted_at" IS NULL;
+	`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	user := &models.User{}
+	err := exc.QueryRowContext(ctx, query, email).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.DeletedAt,
+		&user.FirstName,
+		&user.LastName,
+		&user.Email,
+		&user.Phone,
+		&user.Password,
+		&user.ActiveAt,
+		&user.BlockedAt,
+		&user.RoleID,
+		&user.UploadID,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, errtrace.Wrap(ErrRecordNotFound)
+		default:
+			return nil, errtrace.Errorf("error scanning row: %w", err)
 		}
 	}
 
+	return user, nil
+}
+
+func (r UserRepository) Insert(users ...*models.User) error {
+	for _, user := range users {
+		if user.Password != nil {
+			if err := user.BeforeCreate(); err != nil {
+				return errtrace.Wrap(err)
+			}
+		}
+	}
 	return r.insertExec(r.DB, users...)
 }
 
@@ -300,7 +353,7 @@ func (r UserRepository) insertExec(exc Executor, users ...*models.User) error {
 			return errtrace.New("error scanning row: no next row")
 		}
 
-		if err = rows.Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		if err := rows.Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			return errtrace.Errorf("error scanning row: %w", err)
 		}
 	}

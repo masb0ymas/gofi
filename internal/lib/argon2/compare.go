@@ -9,14 +9,13 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-func (h *Argon2) Compare(password string, encodedHash string) (match bool, err error) {
+func (h *Argon2) Compare(encodedHash string, password string) (match bool, err error) {
 	cfg, salt, hash, err := h.decodeHash(encodedHash)
 	if err != nil {
 		return false, err
 	}
 
 	generatedHash := argon2.IDKey([]byte(password), salt, cfg.Iterations, cfg.Memory, cfg.Parallel, cfg.KeyLength)
-
 	return subtle.ConstantTimeCompare(generatedHash, hash) == 1, nil
 }
 
