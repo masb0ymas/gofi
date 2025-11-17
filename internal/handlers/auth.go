@@ -108,6 +108,9 @@ func (r *authHandler) SignIn(c *fiber.Ctx) error {
 	}
 
 	session := &models.Session{
+		Base: models.Base{
+			ID: uuid.Must(uuid.NewV7()),
+		},
 		UserID:    user.ID,
 		Token:     token,
 		ExpiresAt: time.Unix(expiresIn, 0),
