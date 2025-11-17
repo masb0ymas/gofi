@@ -12,7 +12,12 @@ import (
 
 func (m Middlewares) PermissionAccess(roles []string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		uid := lib.ContextGetUID(c)
+		uid, err := lib.ContextGetUID(c)
+		if err != nil {
+			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
 
 		user, err := m.app.Repositories.User.GetByID(uid)
 		if err != nil {
