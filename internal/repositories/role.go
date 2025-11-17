@@ -17,30 +17,11 @@ import (
 )
 
 type RoleRepository struct {
-	DB *sql.DB
+	BaseRepository
 }
 
 func (r RoleRepository) Count() (int64, error) {
-	return r.countExec(r.DB)
-}
-
-func (r RoleRepository) countExec(exc Executor) (int64, error) {
-	query := `SELECT COUNT(*) FROM "roles";`
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	row := exc.QueryRowContext(ctx, query)
-	if row == nil {
-		return 0, errtrace.New("error scanning row: no next row")
-	}
-
-	var count int64
-	if err := row.Scan(&count); err != nil {
-		return 0, errtrace.Errorf("error scanning row: %w", err)
-	}
-
-	return count, nil
+	return r.BaseRepository.countExec(r.DB)
 }
 
 func (r RoleRepository) List(opts *QueryOptions) ([]*models.Role, PaginationMetadata, error) {
@@ -242,105 +223,13 @@ func (r RoleRepository) updateExec(exc Executor, id uuid.UUID, role *models.Role
 }
 
 func (r RoleRepository) Delete(id uuid.UUID) error {
-	return r.deleteExec(r.DB, id)
-}
-
-func (r RoleRepository) deleteExec(exc Executor, id uuid.UUID) error {
-	query := `
-		DELETE FROM "roles"
-		WHERE "id" = $1;
-	`
-
-	args := []any{
-		id,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	result, err := exc.ExecContext(ctx, query, args...)
-	if err != nil {
-		return errtrace.Wrap(err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return ErrRecordNotFound
-	}
-
-	return nil
+	return r.BaseRepository.deleteExec(r.DB, id)
 }
 
 func (r RoleRepository) SoftDelete(id uuid.UUID) error {
-	return r.softDeleteExec(r.DB, id)
-}
-
-func (r RoleRepository) softDeleteExec(exc Executor, id uuid.UUID) error {
-	query := `
-		UPDATE "roles"
-		SET "deleted_at" = now()
-		WHERE "id" = $1;
-	`
-
-	args := []any{
-		id,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	result, err := exc.ExecContext(ctx, query, args...)
-	if err != nil {
-		return errtrace.Wrap(err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return ErrRecordNotFound
-	}
-
-	return nil
+	return r.BaseRepository.softDeleteExec(r.DB, id)
 }
 
 func (r RoleRepository) Restore(id uuid.UUID) error {
-	return r.restoreExec(r.DB, id)
-}
-
-func (r RoleRepository) restoreExec(exc Executor, id uuid.UUID) error {
-	query := `
-		UPDATE "roles"
-		SET "deleted_at" = NULL
-		WHERE "id" = $1;
-	`
-
-	args := []any{
-		id,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	result, err := exc.ExecContext(ctx, query, args...)
-	if err != nil {
-		return errtrace.Wrap(err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return ErrRecordNotFound
-	}
-
-	return nil
+	return r.BaseRepository.restoreExec(r.DB, id)
 }

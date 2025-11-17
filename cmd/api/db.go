@@ -2,17 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	_ "github.com/lib/pq"
 
 	"gofi/internal/config"
-
-	"github.com/jmoiron/sqlx"
 )
 
-func connectDB(cfg *config.ConfigDB) (*sqlx.DB, error) {
-	db, err := sqlx.Open("postgres", cfg.DSN)
+func connectDB(cfg *config.ConfigDB) (*sql.DB, error) {
+	db, err := sql.Open("postgres", cfg.DSN)
 	if err != nil {
 		return nil, err
 	}

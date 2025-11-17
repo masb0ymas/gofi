@@ -50,7 +50,12 @@ func (s UserSeeder) Seed() {
 		},
 	}
 
-	userRepo := repositories.UserRepository{DB: s.DB}
+	userRepo := repositories.UserRepository{
+		BaseRepository: repositories.BaseRepository{
+			DB:        s.DB,
+			TableName: "users",
+		},
+	}
 	err := userRepo.Insert(users...)
 	if err != nil {
 		panic(NewErrSeedingFailed(err))
