@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"gofi/internal/lib/constant"
 	"gofi/internal/lib/jwt"
 	"gofi/internal/models"
+	"gofi/internal/types"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -125,9 +127,9 @@ func (r *authHandler) SignIn(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"message": "Sign in successfully",
-		"data": fiber.Map{
+	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[any]{
+		Message: "Sign in successfully",
+		Data: fiber.Map{
 			"uid":          user.ID.String(),
 			"email":        user.Email,
 			"display_name": strings.Join([]string{user.FirstName, *user.LastName}, " "),
@@ -152,14 +154,37 @@ func (r *authHandler) VerifySession(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Verify session successfully",
-		"data":    user,
+	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[*models.User]{
+		Message: "Verify session successfully",
+		Data:    user,
 	})
 }
 
 func (r *authHandler) SignOut(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
+	jwt := jwt.New(&r.app.Config.App)
+
+	extractToken, err := jwt.ExtractToken(c)
+	if err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"message": fmt.Sprintf("Unauthorized, %s", err.Error()),
+		})
+	}
+
+	uid, err := lib.ContextGetUID(c)
+	if err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	err = r.app.Repositories.Session.Delete(uid, extractToken)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"message": "Sign out successfully",
 	})
 }
