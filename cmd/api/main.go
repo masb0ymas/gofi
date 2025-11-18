@@ -7,6 +7,7 @@ import (
 	"gofi/internal/app"
 	"gofi/internal/config"
 	"gofi/internal/repositories"
+	"gofi/internal/services"
 )
 
 func main() {
@@ -30,10 +31,14 @@ func main() {
 	}
 	defer db.Close()
 
+	// Dependencies Injection
 	app := &app.Application{
 		Config:       cfg,
 		Logger:       logger,
 		Repositories: repositories.New(db),
+		Services: services.Services{
+			Email: services.EmailService{Config: cfg.Resend},
+		},
 	}
 
 	if err := serve(app); err != nil {
