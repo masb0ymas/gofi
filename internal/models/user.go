@@ -38,3 +38,9 @@ func (entity *User) BeforeCreate() (err error) {
 
 	return
 }
+
+type UserVerifyAccount struct {
+	ID        uuid.UUID `db:"id" json:"id"` // using userID
+	Token     string    `db:"token" json:"token"`
+	ExpiresAt time.Time `db:"expires_at" json:"expires_at"`
+}
