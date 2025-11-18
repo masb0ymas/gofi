@@ -24,10 +24,14 @@ run:
 		--port=$(PORT) \
 		--app-name=$(APP_NAME) \
 		--jwt-secret=$(JWT_SECRET) \
+		--client-url=$(CLIENT_URL) \
 		--db-dsn=$(DB_DSN) \
 		--db-max-open-conns=$(DB_MAX_OPEN_CONNS) \
 		--db-max-idle-conns=$(DB_MAX_IDLE_CONNS) \
-		--db-max-idle-time=$(DB_MAX_IDLE_TIME)
+		--db-max-idle-time=$(DB_MAX_IDLE_TIME) \
+		--resend-api-key=$(RESEND_API_KEY) \
+		--resend-from-email=$(RESEND_FROM_EMAIL) \
+		--resend-debug-to-email=$(RESEND_DEBUG_TO_EMAIL)
 
 # ==================================================================================== #
 # MIGRATIONS

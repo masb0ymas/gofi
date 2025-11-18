@@ -3,8 +3,9 @@ package config
 import "time"
 
 type Config struct {
-	App ConfigApp
-	DB  ConfigDB
+	App    ConfigApp
+	DB     ConfigDB
+	Resend ConfigResend
 }
 
 type ConfigApp struct {
@@ -14,6 +15,7 @@ type ConfigApp struct {
 	MachineID uint16
 	Name      string
 	JWTSecret string
+	ClientURL string
 }
 
 type ConfigDB struct {
@@ -21,4 +23,10 @@ type ConfigDB struct {
 	MaxOpenConns int
 	MaxIdleConns int
 	MaxIdleTime  time.Duration
+}
+
+type ConfigResend struct {
+	ApiKey       string
+	FromEmail    string
+	DebugToEmail string
 }
