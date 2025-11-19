@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"gofi/internal/lib/constant"
 	"gofi/internal/lib/jwt"
 	"gofi/internal/models"
+	"gofi/internal/services"
 	"gofi/internal/types"
 
 	"github.com/gofiber/fiber/v2"
@@ -23,7 +25,7 @@ type authHandler struct {
 	app *app.Application
 }
 
-func (r *authHandler) SignUp(c *fiber.Ctx) error {
+func (h *authHandler) SignUp(c *fiber.Ctx) error {
 	var dto dto.AuthSignUp
 
 	if err := lib.ValidateRequestBody(c, &dto); err != nil {
@@ -46,11 +48,56 @@ func (r *authHandler) SignUp(c *fiber.Ctx) error {
 		Email:     dto.Email,
 		Phone:     dto.Phone,
 		Password:  &dto.Password,
-		ActiveAt:  lib.TimePtr(time.Now()),
 		RoleID:    uuid.Must(uuid.Parse(constant.RoleUser)),
 	}
 
-	err := r.app.Repositories.User.Insert(user)
+	userVerifyAccount := &models.UserVerifyAccount{}
+
+	err := lib.WithTransaction(h.app.Repositories.User.DB, func(tx *sql.Tx) error {
+		err := h.app.Repositories.User.InsertExec(tx, user)
+		if err != nil {
+			return err
+		}
+
+		jsonWebToken := jwt.New(&h.app.Config.App)
+		token, expiresIn, err := jsonWebToken.Generate(&jwt.JWTPayload{
+			UID:       user.ID.String(),
+			Secret:    h.app.Config.App.JWTSecret,
+			ExpiresAt: "1", // 1 day
+		})
+		if err != nil {
+			return err
+		}
+
+		userVerifyAccount.ID = user.ID
+		userVerifyAccount.Token = token
+		userVerifyAccount.ExpiresAt = time.Unix(expiresIn, 0)
+
+		return h.app.Repositories.UserVerifyAccount.InsertExec(tx, userVerifyAccount)
+	})
+
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	link := fmt.Sprintf("%s/verify?token=%s", h.app.Config.App.ClientURL, userVerifyAccount.Token)
+
+	emailForm := struct {
+		Fullname string
+		Link     string
+	}{
+		Fullname: strings.Join([]string{dto.FirstName, *dto.LastName}, " "),
+		Link:     link,
+	}
+
+	_, err = h.app.Services.Email.SendEmail(services.SendEmailParams{
+		Subject:      "Verify your email address",
+		To:           dto.Email,
+		Data:         emailForm,
+		HtmlTemplate: "templates/emails/registration.html",
+	})
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -62,7 +109,7 @@ func (r *authHandler) SignUp(c *fiber.Ctx) error {
 	})
 }
 
-func (r *authHandler) SignIn(c *fiber.Ctx) error {
+func (h *authHandler) SignIn(c *fiber.Ctx) error {
 	var dto dto.AuthSignIn
 
 	if err := lib.ValidateRequestBody(c, &dto); err != nil {
@@ -76,7 +123,7 @@ func (r *authHandler) SignIn(c *fiber.Ctx) error {
 		}
 	}
 
-	user, err := r.app.Repositories.User.GetByEmail(dto.Email)
+	user, err := h.app.Repositories.User.GetByEmail(dto.Email)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -97,10 +144,10 @@ func (r *authHandler) SignIn(c *fiber.Ctx) error {
 		})
 	}
 
-	jsonWebToken := jwt.New(&r.app.Config.App)
+	jsonWebToken := jwt.New(&h.app.Config.App)
 	token, expiresIn, err := jsonWebToken.Generate(&jwt.JWTPayload{
 		UID:       user.ID.String(),
-		Secret:    r.app.Config.App.JWTSecret,
+		Secret:    h.app.Config.App.JWTSecret,
 		ExpiresAt: "1", // 1 day
 	})
 	if err != nil {
@@ -120,7 +167,7 @@ func (r *authHandler) SignIn(c *fiber.Ctx) error {
 		UserAgent: c.Get("User-Agent"),
 	}
 
-	err = r.app.Repositories.Session.Insert(session)
+	err = h.app.Repositories.Session.Insert(session)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -139,7 +186,7 @@ func (r *authHandler) SignIn(c *fiber.Ctx) error {
 	})
 }
 
-func (r *authHandler) VerifySession(c *fiber.Ctx) error {
+func (h *authHandler) VerifySession(c *fiber.Ctx) error {
 	uid, err := lib.ContextGetUID(c)
 	if err != nil {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
@@ -147,7 +194,7 @@ func (r *authHandler) VerifySession(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := r.app.Repositories.User.Get(uid)
+	user, err := h.app.Repositories.User.Get(uid)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -160,8 +207,8 @@ func (r *authHandler) VerifySession(c *fiber.Ctx) error {
 	})
 }
 
-func (r *authHandler) SignOut(c *fiber.Ctx) error {
-	jwt := jwt.New(&r.app.Config.App)
+func (h *authHandler) SignOut(c *fiber.Ctx) error {
+	jwt := jwt.New(&h.app.Config.App)
 
 	extractToken, err := jwt.ExtractToken(c)
 	if err != nil {
@@ -177,7 +224,7 @@ func (r *authHandler) SignOut(c *fiber.Ctx) error {
 		})
 	}
 
-	err = r.app.Repositories.Session.Delete(uid, extractToken)
+	err = h.app.Repositories.Session.Delete(uid, extractToken)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),

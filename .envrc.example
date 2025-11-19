@@ -6,11 +6,17 @@ export DEBUG=true
 export ENV=development
 export PORT=8080
 export APP_NAME=gofi
+export CLIENT_URL=http://localhost:3000
 
 export JWT_SECRET=
 
 # Database
-export DB_DSN="postgres://postgres:postgres@localhost:5432/gofi?sslmode=disable"
+export DB_DSN=postgres://postgres:postgres@localhost:5432/gofi?sslmode=disable
 export DB_MAX_OPEN_CONNS=25
 export DB_MAX_IDLE_CONNS=25
 export DB_MAX_IDLE_TIME=15m
+
+# Resend
+export RESEND_API_KEY=
+export RESEND_FROM_EMAIL=
+export RESEND_DEBUG_TO_EMAIL=

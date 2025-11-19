@@ -18,12 +18,18 @@ func parseFlag(cfg *config.Config) {
 	flag.IntVar(&cfg.App.Port, "port", 8080, "Port")
 	flag.StringVar(&cfg.App.Name, "app-name", "gofi", "App Name")
 	flag.StringVar(&cfg.App.JWTSecret, "jwt-secret", "", "JWT Secret")
+	flag.StringVar(&cfg.App.ClientURL, "client-url", "", "Client URL")
 
 	// Database
 	flag.StringVar(&cfg.DB.DSN, "db-dsn", "", "Database DSN")
 	flag.IntVar(&cfg.DB.MaxOpenConns, "db-max-open-conns", 25, "Database max open connections")
 	flag.IntVar(&cfg.DB.MaxIdleConns, "db-max-idle-conns", 25, "Database max idle connections")
 	flag.DurationVar(&cfg.DB.MaxIdleTime, "db-max-idle-time", 15*time.Minute, "Database max idle time")
+
+	// Resend
+	flag.StringVar(&cfg.Resend.ApiKey, "resend-api-key", "", "Resend API key")
+	flag.StringVar(&cfg.Resend.FromEmail, "resend-from-email", "", "Resend from email")
+	flag.StringVar(&cfg.Resend.DebugToEmail, "resend-debug-to-email", "", "Resend debug to email")
 
 	flag.Parse()
 
@@ -51,7 +57,23 @@ func validateFlag(cfg *config.Config) {
 		log.Fatal("flag jwt-secret must be provided")
 	}
 
+	if cfg.App.ClientURL == "" {
+		log.Fatal("flag client-url must be provided")
+	}
+
 	if cfg.DB.DSN == "" {
 		log.Fatal("flag db-dsn must be provided")
+	}
+
+	if cfg.Resend.ApiKey == "" {
+		log.Fatal("flag resend-api-key must be provided")
+	}
+
+	if cfg.Resend.FromEmail == "" {
+		log.Fatal("flag resend-from-email must be provided")
+	}
+
+	if cfg.Resend.DebugToEmail == "" {
+		log.Fatal("flag resend-debug-to-email must be provided")
 	}
 }

@@ -262,10 +262,10 @@ func (r UserRepository) Insert(users ...*models.User) error {
 			}
 		}
 	}
-	return r.insertExec(r.DB, users...)
+	return r.InsertExec(r.DB, users...)
 }
 
-func (r UserRepository) insertExec(exc Executor, users ...*models.User) error {
+func (r UserRepository) InsertExec(exc Executor, users ...*models.User) error {
 	if len(users) == 0 {
 		return nil
 	}
