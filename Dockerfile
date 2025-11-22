@@ -14,7 +14,7 @@ RUN go mod download
 
 COPY . .
 
-RUN cp .envrc.example .envrc
+RUN cp .envrc.docker .envrc
 
 # Build the application
 RUN make build/api
