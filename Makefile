@@ -72,3 +72,21 @@ db/migrations/refresh:
 .PHONY: db/migrations/refresh/seed
 db/migrations/refresh/seed:
 	@go run ./cmd/migrate --db-dsn=$(DB_DSN) --seed=dev refresh
+
+# ==================================================================================== #
+# BUILD
+# ==================================================================================== #
+
+## build/api: build the cmd/api application
+.PHONY: build/api
+build/api:
+	@echo 'Building cmd/api...'
+	go build -ldflags="-s" -o=./bin/api ./cmd/api
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s" -o=./bin/linux_amd64/api ./cmd/api
+
+## build/migrate: build the cmd/migrate application
+.PHONY: build/migrate
+build/migrate:
+	@echo 'Building cmd/migrate...'
+	go build -ldflags="-s" -o=./bin/migrate ./cmd/migrate
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s" -o=./bin/linux_amd64/migrate ./cmd/migrate
