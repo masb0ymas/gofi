@@ -54,7 +54,12 @@ func (h *authHandler) SignUp(c *fiber.Ctx) error {
 	userVerifyAccount := &models.UserVerifyAccount{}
 
 	err := lib.WithTransaction(h.app.Repositories.User.DB, func(tx *sql.Tx) error {
-		err := h.app.Repositories.User.InsertExec(tx, user)
+		err := user.BeforeCreate()
+		if err != nil {
+			return err
+		}
+
+		err = h.app.Repositories.User.InsertExec(tx, user)
 		if err != nil {
 			return err
 		}
@@ -130,8 +135,8 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 		})
 	}
 
-	arg := argon2.New()
-	match, err := arg.Compare(*user.Password, dto.Password)
+	hash := argon2.New()
+	match, err := hash.Compare(*user.Password, dto.Password)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),

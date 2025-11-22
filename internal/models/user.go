@@ -25,10 +25,10 @@ type User struct {
 }
 
 func (entity *User) BeforeCreate() (err error) {
-	argon2 := argon2.New()
+	hash := argon2.New()
 
 	if entity.Password != nil {
-		password, err := argon2.Generate(*entity.Password)
+		password, err := hash.Generate(*entity.Password)
 		if err != nil {
 			return err
 		}
