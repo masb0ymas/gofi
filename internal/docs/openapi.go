@@ -1,7 +1,6 @@
 package docs
 
 import (
-	"fmt"
 	"gofi/internal/app"
 
 	"github.com/gofiber/fiber/v2"
@@ -48,6 +47,23 @@ func (g *OpenAPIGenerator) GenerateSpec() map[string]interface{} {
 
 func (g *OpenAPIGenerator) generatePaths() map[string]interface{} {
 	return map[string]interface{}{
+		// Auth
+		"/v1/auth/sign-up": map[string]interface{}{
+			"post": g.generateAuthSignUp(),
+		},
+		"/v1/auth/sign-in": map[string]interface{}{
+			"post": g.generateAuthSignIn(),
+		},
+		"/v1/auth/verify-registration": map[string]interface{}{
+			"post": g.generateAuthVerifyRegistration(),
+		},
+		"/v1/auth/verify-session": map[string]interface{}{
+			"get": g.generateAuthVerifySession(),
+		},
+		"/v1/auth/sign-out": map[string]interface{}{
+			"post": g.generateAuthSignOut(),
+		},
+
 		// Role
 		"/v1/roles": map[string]interface{}{
 			"get":  g.generateGetRoles(),
@@ -62,7 +78,7 @@ func (g *OpenAPIGenerator) generatePaths() map[string]interface{} {
 			"delete": g.generateSoftDeleteRoleById(),
 		},
 		"/v1/roles/:roleID/restore": map[string]interface{}{
-			"put": g.generateRestoreRoleById(),
+			"patch": g.generateRestoreRoleById(),
 		},
 	}
 }
@@ -75,6 +91,12 @@ func (g *OpenAPIGenerator) generateComponents() map[string]interface{} {
 			// Pagination
 			"OffsetQuery": g.generateOffsetQuery(),
 			"LimitQuery":  g.generateLimitQuery(),
+			// Auth
+			"SignUpRequest":             g.generateAuthSignUpRequest(),
+			"SignInRequest":             g.generateAuthSignInRequest(),
+			"SignInResponse":            g.generateAuthSignInResponse(),
+			"VerifyRegistrationRequest": g.generateAuthVerifyRegistrationRequest(),
+			"VerifySessionResponse":     g.generateAuthVerifySessionResponse(),
 			// Role
 			"Role":              g.generateRoleModel(),
 			"CreateRoleRequest": g.generateCreateRoleRequest(),
@@ -88,6 +110,10 @@ func (g *OpenAPIGenerator) generateComponents() map[string]interface{} {
 
 func (g *OpenAPIGenerator) generateTags() []map[string]interface{} {
 	return []map[string]interface{}{
+		{
+			"name":        "Auth",
+			"description": "Authentication operations",
+		},
 		{
 			"name":        "Roles",
 			"description": "Role management operations",
@@ -136,10 +162,10 @@ func SetupDocsRoutes(server *fiber.App, app *app.Application) {
 	// Create OpenAPI generator
 	generator := NewOpenAPIGenerator(
 		OpenAPIGenerator{
-			Title:       "Gofi API Documentation",
+			Title:       "GoFi API Documentation",
 			Version:     "1.0.0",
-			Description: "Complete API documentation for the Gofi application with user management endpoints",
-			ServerURL:   fmt.Sprintf("http://localhost:%d", app.Config.App.Port),
+			Description: "Complete API documentation for the GoFi application with user management endpoints",
+			ServerURL:   app.Config.App.ServerURL,
 		},
 	)
 

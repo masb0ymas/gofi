@@ -7,7 +7,7 @@ func (g *OpenAPIGenerator) generateRoleModel() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"id": map[string]interface{}{
 				"type":        "string",
-				"example":     "58cfe72f-a304-4ddf-a7de-51ab24b30b6a",
+				"example":     "019aac2a-338a-79d1-960d-c80d1fa9e5b8",
 				"description": "Unique identifier for the role",
 			},
 			"created_at": map[string]interface{}{
