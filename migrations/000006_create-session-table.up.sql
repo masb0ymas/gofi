@@ -15,3 +15,5 @@ CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON "sessions" ("updated_at");
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON "sessions" ("user_id");
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON "sessions" ("token");
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON "sessions" ("expires_at");
+
+ALTER TABLE "sessions" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
