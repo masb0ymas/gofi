@@ -191,6 +191,64 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 	})
 }
 
+func (h *authHandler) VerifyRegistration(c *fiber.Ctx) error {
+	var dto dto.AuthVerifyRegistration
+
+	if err := lib.ValidateRequestBody(c, &dto); err != nil {
+		switch e := err.(type) {
+		case *lib.ErrValidationFailed:
+			return c.Status(http.StatusBadRequest).JSON(lib.WrapValidationError(e.MessageRecord))
+		default:
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+	}
+
+	jsonWebToken := jwt.New(&h.app.Config.App)
+	claims, err := jsonWebToken.Verify(dto.Token)
+	if err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"message": "Invalid token",
+		})
+	}
+
+	userID := uuid.Must(uuid.Parse(claims.UID))
+
+	userVerifyAccount, err := h.app.Repositories.UserVerifyAccount.Get(userID, dto.Token)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	if userVerifyAccount.ExpiresAt.Before(time.Now()) {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"message": "Token expired",
+		})
+	}
+
+	user, err := h.app.Repositories.User.Get(userVerifyAccount.ID)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	user.ActiveAt = lib.TimePtr(time.Now())
+
+	err = h.app.Repositories.User.Update(user.ID, user)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"message": "Verify registration successfully",
+	})
+}
+
 func (h *authHandler) VerifySession(c *fiber.Ctx) error {
 	uid, err := lib.ContextGetUID(c)
 	if err != nil {

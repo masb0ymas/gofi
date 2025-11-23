@@ -353,12 +353,12 @@ func (r UserRepository) updateExec(exc Executor, id uuid.UUID, user *models.User
 				"last_name" = $2,
 				"email" = $3,
 				"phone" = $4,
-				"active_at" = $6,
-				"blocked_at" = $7,
-				"role_id" = $8,
-				"upload_id" = $9,
+				"active_at" = $5,
+				"blocked_at" = $6,
+				"role_id" = $7,
+				"upload_id" = $8,
 				"updated_at" = now()
-		WHERE "id" = $10;
+		WHERE "id" = $9;
 	`
 
 	args := []any{
