@@ -25,8 +25,6 @@ type SendEmailParams struct {
 func (s EmailService) SendEmail(value SendEmailParams) (string, error) {
 	client := resend.NewClient(s.Config.ApiKey)
 
-	fmt.Println(s.Config)
-
 	// Load the HTML template
 	htmlStr, err := ParseTemplate(value.HtmlTemplate, value.Data)
 	if err != nil {
