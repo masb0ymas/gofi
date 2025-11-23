@@ -27,3 +27,11 @@ func (dto AuthSignIn) Validate(v *validator.MapValidator) {
 	v.Field("email").Required().String()
 	v.Field("password").Required().String()
 }
+
+type AuthVerifyRegistration struct {
+	Token string `json:"token" form:"token"`
+}
+
+func (dto AuthVerifyRegistration) Validate(v *validator.MapValidator) {
+	v.Field("token").Required().String()
+}

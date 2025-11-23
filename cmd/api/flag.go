@@ -19,6 +19,7 @@ func parseFlag(cfg *config.Config) {
 	flag.StringVar(&cfg.App.Name, "app-name", "gofi", "App Name")
 	flag.StringVar(&cfg.App.JWTSecret, "jwt-secret", "", "JWT Secret")
 	flag.StringVar(&cfg.App.ClientURL, "client-url", "", "Client URL")
+	flag.StringVar(&cfg.App.ServerURL, "server-url", "", "Server URL")
 
 	// Database
 	flag.StringVar(&cfg.DB.DSN, "db-dsn", "", "Database DSN")
@@ -59,6 +60,10 @@ func validateFlag(cfg *config.Config) {
 
 	if cfg.App.ClientURL == "" {
 		log.Fatal("flag client-url must be provided")
+	}
+
+	if cfg.App.ServerURL == "" {
+		log.Fatal("flag server-url must be provided")
 	}
 
 	if cfg.DB.DSN == "" {

@@ -16,6 +16,7 @@ type ConfigApp struct {
 	Name      string
 	JWTSecret string
 	ClientURL string
+	ServerURL string
 }
 
 type ConfigDB struct {

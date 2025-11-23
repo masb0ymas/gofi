@@ -24,8 +24,13 @@ func routes(r *fiber.App, app *app.Application) {
 	authRoutes := r.Group("/v1/auth")
 	authRoutes.Post("/sign-up", h.Auth.SignUp)
 	authRoutes.Post("/sign-in", h.Auth.SignIn)
+	authRoutes.Post("/verify-registration", h.Auth.VerifyRegistration)
 	authRoutes.Get("/verify-session", m.Authorization(), h.Auth.VerifySession)
 	authRoutes.Post("/sign-out", m.Authorization(), h.Auth.SignOut)
+
+	sessionRoutes := r.Group("/v1/sessions")
+	sessionRoutes.Use(m.Authorization(), m.PermissionAccess([]string{constant.RoleAdmin}))
+	sessionRoutes.Get("", h.Session.Index)
 
 	roleRoutes := r.Group("/v1/roles")
 	roleRoutes.Use(m.Authorization())

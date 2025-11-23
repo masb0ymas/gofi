@@ -40,9 +40,9 @@ COPY --from=builder /temp-build/.envrc /app/.envrc
 # Process .envrc and create .env file during build
 RUN touch /app/.env && \
     while IFS= read -r line; do \
-        if echo "$line" | grep -q "^export"; then \
-            echo "$line" | sed 's/^export //' >> /app/.env; \
-        fi \
+    if echo "$line" | grep -q "^export"; then \
+    echo "$line" | sed 's/^export //' >> /app/.env; \
+    fi \
     done < /app/.envrc && \
     cat /app/.env
 
@@ -58,6 +58,7 @@ ENTRYPOINT ["/bin/sh", "-c", "set -a && . /app/.env && set +a && exec ./api \
     --app-name=$APP_NAME \
     --jwt-secret=$JWT_SECRET \
     --client-url=$CLIENT_URL \
+    --server-url=$SERVER_URL \
     --db-dsn=$DB_DSN \
     --db-max-open-conns=$DB_MAX_OPEN_CONNS \
     --db-max-idle-conns=$DB_MAX_IDLE_CONNS \

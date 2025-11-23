@@ -20,6 +20,116 @@ type SessionRepository struct {
 	DB *sql.DB
 }
 
+func (r SessionRepository) Count() (int64, error) {
+	return r.countExec(r.DB)
+}
+
+func (r SessionRepository) countExec(exc Executor) (int64, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM "sessions";
+	`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var count int64
+	err := exc.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, errtrace.Errorf("error scanning row: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r SessionRepository) List(opts *QueryOptions) ([]*models.Session, PaginationMetadata, error) {
+	return r.listExec(r.DB, opts)
+}
+
+func (r SessionRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Session, PaginationMetadata, error) {
+	if opts == nil {
+		opts = &QueryOptions{}
+	}
+
+	selectFields := `"s"."id", "s"."created_at", "s"."updated_at", "s"."user_id", "s"."expires_at", "s"."ip_address", "s"."user_agent"`
+	baseQuery := fmt.Sprintf(`
+		SELECT %s
+		FROM "sessions" "s"
+	`, selectFields)
+
+	var args []any
+	argIndex := 1
+
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(baseQuery)
+
+	orderBy := `"s"."created_at"`
+	order := "DESC"
+
+	if opts.OrderBy != "" {
+		orderBy = opts.OrderBy
+	}
+
+	if opts.Order != "" {
+		upperOrder := strings.ToUpper(opts.Order)
+		if upperOrder != "ASC" && upperOrder != "DESC" {
+			return nil, PaginationMetadata{}, errtrace.New("invalid order")
+		}
+		order = upperOrder
+	}
+
+	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY %s %s", orderBy, order))
+
+	if opts.Limit > 0 {
+		queryBuilder.WriteString(fmt.Sprintf(" LIMIT $%d", argIndex))
+		args = append(args, opts.Limit)
+		argIndex++
+	}
+
+	if opts.Offset > 0 {
+		queryBuilder.WriteString(fmt.Sprintf(" OFFSET $%d", argIndex))
+		args = append(args, opts.Offset)
+		argIndex++
+	}
+
+	query := queryBuilder.String()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := exc.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, PaginationMetadata{}, errtrace.Errorf("error querying rows: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []*models.Session
+	for rows.Next() {
+		session := &models.Session{}
+		if err := rows.Scan(
+			&session.ID,
+			&session.CreatedAt,
+			&session.UpdatedAt,
+			&session.UserID,
+			&session.ExpiresAt,
+			&session.IPAddress,
+			&session.UserAgent,
+		); err != nil {
+			return nil, PaginationMetadata{}, errtrace.Errorf("error scanning row: %w", err)
+		}
+		sessions = append(sessions, session)
+	}
+
+	count, err := r.countExec(exc)
+	if err != nil {
+		return nil, PaginationMetadata{}, errtrace.Errorf("error counting rows: %w", err)
+	}
+
+	return sessions, PaginationMetadata{
+		Total: count,
+	}, nil
+}
+
 func (r SessionRepository) GetByUserID(userID uuid.UUID) (*models.Session, error) {
 	return r.getByUserIDExec(r.DB, userID)
 }
