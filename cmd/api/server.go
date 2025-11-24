@@ -68,7 +68,7 @@ func serve(app *app.Application) error {
 
 	server.Static("/", "./public")
 
-	// generate api-docs with scalar
+	// generate /docs with scalar
 	if app.Config.App.Env != "production" {
 		docs.SetupDocsRoutes(server, app)
 	}
