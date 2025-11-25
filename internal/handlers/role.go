@@ -55,7 +55,7 @@ func (h *roleHandler) Index(c *fiber.Ctx) error {
 }
 
 func (h *roleHandler) Show(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+	roleID, err := lib.ContextParamUUID(c, "roleID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid role id must be uuid format",
@@ -63,7 +63,7 @@ func (h *roleHandler) Show(c *fiber.Ctx) error {
 		})
 	}
 
-	role, err := h.app.Repositories.Role.Get(id)
+	role, err := h.app.Repositories.Role.Get(roleID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -120,7 +120,7 @@ func (h *roleHandler) Create(c *fiber.Ctx) error {
 }
 
 func (h *roleHandler) Update(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+	roleID, err := lib.ContextParamUUID(c, "roleID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid role id must be uuid format",
@@ -141,7 +141,7 @@ func (h *roleHandler) Update(c *fiber.Ctx) error {
 		}
 	}
 
-	role, err := h.app.Repositories.Role.Get(id)
+	role, err := h.app.Repositories.Role.Get(roleID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -152,7 +152,7 @@ func (h *roleHandler) Update(c *fiber.Ctx) error {
 		role.Name = dto.Name
 	}
 
-	err = h.app.Repositories.Role.Update(id, role)
+	err = h.app.Repositories.Role.Update(roleID, role)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -167,7 +167,7 @@ func (h *roleHandler) Update(c *fiber.Ctx) error {
 }
 
 func (h *roleHandler) Delete(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+	roleID, err := lib.ContextParamUUID(c, "roleID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid role id must be uuid format",
@@ -175,7 +175,7 @@ func (h *roleHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.app.Repositories.Role.Delete(id)
+	err = h.app.Repositories.Role.Delete(roleID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -189,7 +189,7 @@ func (h *roleHandler) Delete(c *fiber.Ctx) error {
 }
 
 func (h *roleHandler) SoftDelete(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+	roleID, err := lib.ContextParamUUID(c, "roleID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid role id must be uuid format",
@@ -197,7 +197,7 @@ func (h *roleHandler) SoftDelete(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.app.Repositories.Role.SoftDelete(id)
+	err = h.app.Repositories.Role.SoftDelete(roleID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -211,7 +211,7 @@ func (h *roleHandler) SoftDelete(c *fiber.Ctx) error {
 }
 
 func (h *roleHandler) Restore(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+	roleID, err := lib.ContextParamUUID(c, "roleID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid role id must be uuid format",
@@ -219,7 +219,7 @@ func (h *roleHandler) Restore(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.app.Repositories.Role.Restore(id)
+	err = h.app.Repositories.Role.Restore(roleID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),

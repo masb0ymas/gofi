@@ -19,3 +19,8 @@ func ContextGetUID(c *fiber.Ctx) (uuid.UUID, error) {
 func ContextSetUID(c *fiber.Ctx, uid uuid.UUID) {
 	c.Locals("uid", uid.String())
 }
+
+func ContextParamUUID(c *fiber.Ctx, key string) (uuid.UUID, error) {
+	str := c.Params(key)
+	return uuid.Parse(str)
+}

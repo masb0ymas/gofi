@@ -55,7 +55,7 @@ func (h *userHandler) Index(c *fiber.Ctx) error {
 }
 
 func (h *userHandler) Show(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("roleID"))
+	userID, err := lib.ContextParamUUID(c, "userID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid role id must be uuid format",
@@ -63,7 +63,7 @@ func (h *userHandler) Show(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := h.app.Repositories.User.Get(id)
+	user, err := h.app.Repositories.User.Get(userID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -126,7 +126,7 @@ func (h *userHandler) Create(c *fiber.Ctx) error {
 }
 
 func (h *userHandler) Update(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("userID"))
+	userID, err := lib.ContextParamUUID(c, "userID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid user id must be uuid format",
@@ -147,7 +147,7 @@ func (h *userHandler) Update(c *fiber.Ctx) error {
 		}
 	}
 
-	user, err := h.app.Repositories.User.Get(id)
+	user, err := h.app.Repositories.User.Get(userID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -170,7 +170,7 @@ func (h *userHandler) Update(c *fiber.Ctx) error {
 		user.UploadID = dto.UploadID
 	}
 
-	err = h.app.Repositories.User.Update(id, user)
+	err = h.app.Repositories.User.Update(userID, user)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -185,7 +185,7 @@ func (h *userHandler) Update(c *fiber.Ctx) error {
 }
 
 func (h *userHandler) Delete(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("userID"))
+	userID, err := lib.ContextParamUUID(c, "userID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid user id must be uuid format",
@@ -193,7 +193,7 @@ func (h *userHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.app.Repositories.User.Delete(id)
+	err = h.app.Repositories.User.Delete(userID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -207,7 +207,7 @@ func (h *userHandler) Delete(c *fiber.Ctx) error {
 }
 
 func (h *userHandler) SoftDelete(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("userID"))
+	userID, err := lib.ContextParamUUID(c, "userID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid user id must be uuid format",
@@ -215,7 +215,7 @@ func (h *userHandler) SoftDelete(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.app.Repositories.User.SoftDelete(id)
+	err = h.app.Repositories.User.SoftDelete(userID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
@@ -229,7 +229,7 @@ func (h *userHandler) SoftDelete(c *fiber.Ctx) error {
 }
 
 func (h *userHandler) Restore(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("userID"))
+	userID, err := lib.ContextParamUUID(c, "userID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"message": "invalid user id must be uuid format",
@@ -237,7 +237,7 @@ func (h *userHandler) Restore(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.app.Repositories.User.Restore(id)
+	err = h.app.Repositories.User.Restore(userID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
