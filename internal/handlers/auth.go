@@ -92,9 +92,11 @@ func (h *authHandler) SignUp(c *fiber.Ctx) error {
 	emailForm := struct {
 		Fullname string
 		Link     string
+		AppName  string
 	}{
 		Fullname: strings.Join([]string{dto.FirstName, *dto.LastName}, " "),
 		Link:     link,
+		AppName:  h.app.Config.App.Name,
 	}
 
 	_, err = h.app.Services.Email.SendEmail(services.SendEmailParams{
