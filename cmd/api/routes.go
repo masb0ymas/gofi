@@ -19,7 +19,7 @@ func routes(r *fiber.App, app *app.Application) {
 		})
 	})
 
-	r.Get("/healthcheck", h.Health.Check)
+	r.Get("/health-check", h.Health.Check)
 
 	authRoutes := r.Group("/v1/auth")
 	authRoutes.Post("/sign-up", h.Auth.SignUp)
