@@ -73,7 +73,7 @@ export RESEND_FROM_EMAIL=noreply@yourdomain.com
 
 3. **Set up the database**
 
-Create your PostgreSQL database, then update the database name in `/migrations/000001_initial-database.up.sql` (search for `dev_gintama` and replace with your database name).
+Create your PostgreSQL database, then update the database name in `/migrations/000001_initial-database.up.sql` (search for `dev_gofi` and replace with your database name).
 
 4. **Run migrations and seed data**
 
