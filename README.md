@@ -1,6 +1,6 @@
 # GoFi
 
-> A high-performance REST API built with Go and Gin framework
+> A high-performance REST API built with Go and Fiber framework
 
 ## 📋 Overview
 
@@ -8,7 +8,7 @@ GoFi is a production-ready REST API server built with Go, designed for high perf
 
 ### Key Features
 
-- **High Performance**: Built on the Gin web framework with optimized middleware
+- **High Performance**: Built on the Fiber web framework with optimized middleware
 - **Clean Architecture**: Dependency injection and separation of concerns
 - **Database Migrations**: Automated schema management with golang-migrate
 - **Security**: JWT authentication, Helmet middleware, CORS support
