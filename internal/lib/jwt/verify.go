@@ -21,7 +21,7 @@ func (j *JWT) Verify(extractToken string) (*JWTClaims, error) {
 	}
 
 	if !token.Valid {
-		return nil, errors.New("invalid token")
+		return nil, ErrInvalidToken
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -32,5 +32,5 @@ func (j *JWT) Verify(extractToken string) (*JWTClaims, error) {
 		}, nil
 	}
 
-	return nil, errors.New("invalid token")
+	return nil, ErrInvalidToken
 }

@@ -1,7 +1,6 @@
 package jwt
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -23,15 +22,15 @@ func (j *JWT) ExtractToken(c *fiber.Ctx) (string, error) {
 		// Bearer <token>
 		parts := strings.Split(contextHeader, " ")
 		if len(parts) != 2 {
-			return "", errors.New("invalid token format")
+			return "", ErrInvalidToken
 		}
 
 		if parts[0] != "Bearer" || parts[1] == "" {
-			return "", errors.New("invalid token format")
+			return "", ErrInvalidToken
 		}
 
 		return parts[1], nil
 	}
 
-	return "", errors.New("token not found")
+	return "", ErrInvalidToken
 }
