@@ -174,15 +174,16 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 		UserAgent: c.Get("User-Agent"),
 	}
 
-	expiresAt := time.Now().Add(time.Hour * 24 * 60)
-	refreshTokenLib := lib.NewRefreshToken(&h.app.Config.App)
-	refToken := refreshTokenLib.Generate(user.ID.String(), expiresAt.Unix())
+	expiresAt := time.Now().Add(time.Hour * 24 * 60) // 60 days
+	rt := lib.NewRefreshToken(&h.app.Config.App)
+	refToken := rt.Generate(user.ID.String(), expiresAt.Unix())
 
 	refreshToken := &models.RefreshToken{
 		ID:        uuid.Must(uuid.NewV7()),
 		UserID:    user.ID,
 		Token:     refToken,
-		ExpiresAt: expiresAt, // 60 days
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
 	}
 
 	err = lib.WithTransaction(h.app.Repositories.Session.DB, func(tx *sql.Tx) error {
@@ -203,11 +204,12 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[any]{
 		Message: "Sign in successfully",
 		Data: fiber.Map{
-			"uid":          user.ID.String(),
-			"email":        user.Email,
-			"display_name": strings.Join([]string{user.FirstName, *user.LastName}, " "),
-			"is_admin":     user.RoleID.String() == constant.RoleAdmin,
-			"access_token": token,
+			"uid":           user.ID.String(),
+			"email":         user.Email,
+			"display_name":  strings.Join([]string{user.FirstName, *user.LastName}, " "),
+			"is_admin":      user.RoleID.String() == constant.RoleAdmin,
+			"access_token":  token,
+			"refresh_token": refToken,
 		},
 	})
 }
@@ -288,6 +290,98 @@ func (h *authHandler) VerifySession(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[*models.User]{
 		Message: "Verify session successfully",
 		Data:    user,
+	})
+}
+
+func (h *authHandler) RefreshToken(c *fiber.Ctx) error {
+	var dto dto.AuthRefreshToken
+
+	if err := lib.ValidateRequestBody(c, &dto); err != nil {
+		switch e := err.(type) {
+		case *lib.ErrValidationFailed:
+			return c.Status(http.StatusBadRequest).JSON(lib.WrapValidationError(e.MessageRecord))
+		default:
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+	}
+
+	uid, err := lib.ContextGetUID(c)
+	if err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	user, err := h.app.Repositories.User.Get(uid)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	rt, err := h.app.Repositories.RefreshToken.Get(uid, dto.Token)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	if rt.ExpiresAt.Before(time.Now()) {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"message": "Token expired",
+		})
+	}
+
+	jsonWebToken := jwt.New(&h.app.Config.App)
+	token, expiresIn, err := jsonWebToken.Generate(&jwt.JWTPayload{
+		UID:       user.ID.String(),
+		Secret:    h.app.Config.App.JWTSecret,
+		ExpiresAt: "1", // 1 day
+	})
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	extractToken, err := jsonWebToken.ExtractToken(c)
+	if err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"message": fmt.Sprintf("Unauthorized, %s", err.Error()),
+		})
+	}
+
+	session, err := h.app.Repositories.Session.GetByUserToken(uid, extractToken)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	session.Token = token
+	session.ExpiresAt = time.Unix(expiresIn, 0)
+	session.IPAddress = c.IP()
+	session.UserAgent = c.Get("User-Agent")
+
+	err = h.app.Repositories.Session.Update(session.ID, session)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[any]{
+		Message: "Refresh token successfully",
+		Data: fiber.Map{
+			"uid":           user.ID.String(),
+			"email":         user.Email,
+			"display_name":  strings.Join([]string{user.FirstName, *user.LastName}, " "),
+			"is_admin":      user.RoleID.String() == constant.RoleAdmin,
+			"access_token":  token,
+			"refresh_token": dto.Token,
+		},
 	})
 }
 
