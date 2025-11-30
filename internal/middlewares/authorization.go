@@ -46,7 +46,7 @@ func (m Middlewares) Authorization() fiber.Handler {
 
 			if claims.Exp < time.Now().Unix() {
 				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-					"message": "Unauthorized, expired session",
+					"message": fmt.Sprintf("Unauthorized, %s", "token has expired"),
 				})
 			}
 
