@@ -201,10 +201,10 @@ func (r SessionRepository) getByTokenExec(exc Executor, token string) (*models.S
 }
 
 func (r SessionRepository) Insert(session ...*models.Session) error {
-	return r.insertExec(r.DB, session...)
+	return r.InsertExec(r.DB, session...)
 }
 
-func (r SessionRepository) insertExec(exc Executor, session ...*models.Session) error {
+func (r SessionRepository) InsertExec(exc Executor, session ...*models.Session) error {
 	if len(session) == 0 {
 		return nil
 	}

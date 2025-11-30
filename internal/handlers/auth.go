@@ -174,7 +174,26 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 		UserAgent: c.Get("User-Agent"),
 	}
 
-	err = h.app.Repositories.Session.Insert(session)
+	expiresAt := time.Now().Add(time.Hour * 24 * 60)
+	refreshTokenLib := lib.NewRefreshToken(&h.app.Config.App)
+	refToken := refreshTokenLib.Generate(user.ID.String(), expiresAt.Unix())
+
+	refreshToken := &models.RefreshToken{
+		ID:        uuid.Must(uuid.NewV7()),
+		UserID:    user.ID,
+		Token:     refToken,
+		ExpiresAt: expiresAt, // 60 days
+	}
+
+	err = lib.WithTransaction(h.app.Repositories.Session.DB, func(tx *sql.Tx) error {
+		err = h.app.Repositories.Session.InsertExec(tx, session)
+		if err != nil {
+			return err
+		}
+
+		return h.app.Repositories.RefreshToken.InsertExec(tx, refreshToken)
+	})
+
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
