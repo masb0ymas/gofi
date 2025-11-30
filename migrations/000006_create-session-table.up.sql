@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS "sessions" (
   "created_at" TIMESTAMP DEFAULT now(),
   "updated_at" TIMESTAMP DEFAULT now(),
   "user_id" UUID NOT NULL,
-  "token" VARCHAR NOT NULL,
+  "token" TEXT NOT NULL,
   "expires_at" TIMESTAMP NOT NULL,
   "ip_address" VARCHAR NOT NULL,
   "user_agent" TEXT NOT NULL
