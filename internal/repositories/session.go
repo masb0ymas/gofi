@@ -163,6 +163,39 @@ func (r SessionRepository) getByUserIDExec(exc Executor, userID uuid.UUID) (*mod
 	return session, nil
 }
 
+func (r SessionRepository) GetByUserToken(userID uuid.UUID, token string) (*models.Session, error) {
+	return r.getByUserTokenExec(r.DB, userID, token)
+}
+
+func (r SessionRepository) getByUserTokenExec(exc Executor, userID uuid.UUID, token string) (*models.Session, error) {
+	query := `
+		SELECT "id", "user_id", "token", "expires_at"
+		FROM "sessions"
+		WHERE "user_id" = $1 AND "token" = $2;
+	`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	session := &models.Session{}
+	err := exc.QueryRowContext(ctx, query, userID, token).Scan(
+		&session.ID,
+		&session.UserID,
+		&session.Token,
+		&session.ExpiresAt,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, errtrace.Errorf("error scanning row: %w", err)
+		}
+	}
+
+	return session, nil
+}
+
 func (r SessionRepository) GetByToken(token string) (*models.Session, error) {
 	return r.getByTokenExec(r.DB, token)
 }
@@ -201,10 +234,10 @@ func (r SessionRepository) getByTokenExec(exc Executor, token string) (*models.S
 }
 
 func (r SessionRepository) Insert(session ...*models.Session) error {
-	return r.insertExec(r.DB, session...)
+	return r.InsertExec(r.DB, session...)
 }
 
-func (r SessionRepository) insertExec(exc Executor, session ...*models.Session) error {
+func (r SessionRepository) InsertExec(exc Executor, session ...*models.Session) error {
 	if len(session) == 0 {
 		return nil
 	}
@@ -254,6 +287,45 @@ func (r SessionRepository) insertExec(exc Executor, session ...*models.Session) 
 		if err := rows.Scan(&s.ID, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return errtrace.Errorf("error scanning row: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (r SessionRepository) Update(id uuid.UUID, session *models.Session) error {
+	return r.updateExec(r.DB, id, session)
+}
+
+func (r SessionRepository) updateExec(exc Executor, id uuid.UUID, session *models.Session) error {
+	query := `
+		UPDATE "sessions"
+		SET "token" = $1, "expires_at" = $2, "ip_address" = $3, "user_agent" = $4, "updated_at" = now()
+		WHERE "id" = $5;
+	`
+
+	args := []any{
+		session.Token,
+		session.ExpiresAt,
+		session.IPAddress,
+		session.UserAgent,
+		id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := exc.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrEditConflict
 	}
 
 	return nil

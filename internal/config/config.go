@@ -14,6 +14,7 @@ type ConfigApp struct {
 	Port      int
 	MachineID uint16
 	Name      string
+	Secret    string
 	JWTSecret string
 	ClientURL string
 	ServerURL string

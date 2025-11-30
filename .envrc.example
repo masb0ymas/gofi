@@ -6,6 +6,7 @@ export DEBUG=true
 export ENV=development
 export PORT=8080
 export APP_NAME=gofi
+export APP_SECRET=
 
 export JWT_SECRET=
 

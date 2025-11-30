@@ -35,3 +35,11 @@ type AuthVerifyRegistration struct {
 func (dto AuthVerifyRegistration) Validate(v *validator.MapValidator) {
 	v.Field("token").Required().String()
 }
+
+type AuthRefreshToken struct {
+	Token string `json:"token" form:"token"`
+}
+
+func (dto AuthRefreshToken) Validate(v *validator.MapValidator) {
+	v.Field("token").Required().String()
+}

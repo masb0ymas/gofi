@@ -26,6 +26,7 @@ func routes(r *fiber.App, app *app.Application) {
 	authRoutes.Post("/sign-in", h.Auth.SignIn)
 	authRoutes.Post("/verify-registration", h.Auth.VerifyRegistration)
 	authRoutes.Get("/verify-session", m.Authorization(), h.Auth.VerifySession)
+	authRoutes.Post("/refresh-token", m.Authorization(), h.Auth.RefreshToken)
 	authRoutes.Post("/sign-out", m.Authorization(), h.Auth.SignOut)
 
 	adminOnly := []string{constant.RoleAdmin}

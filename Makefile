@@ -23,6 +23,7 @@ run:
 		--env=$(ENV) \
 		--port=$(PORT) \
 		--app-name=$(APP_NAME) \
+		--app-secret=$(APP_SECRET) \
 		--jwt-secret=$(JWT_SECRET) \
 		--client-url=$(CLIENT_URL) \
 		--server-url=$(SERVER_URL) \
