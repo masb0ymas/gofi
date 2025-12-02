@@ -28,6 +28,8 @@ func routes(r *fiber.App, app *app.Application) {
 	authRoutes.Get("/verify-session", m.Authorization(), h.Auth.VerifySession)
 	authRoutes.Post("/refresh-token", m.Authorization(), h.Auth.RefreshToken)
 	authRoutes.Post("/sign-out", m.Authorization(), h.Auth.SignOut)
+	authRoutes.Post("/google", h.Auth.GoogleAuthURL)
+	authRoutes.Get("/google/callback", h.Auth.GoogleAuthCallback)
 
 	adminOnly := []string{constant.RoleAdmin}
 

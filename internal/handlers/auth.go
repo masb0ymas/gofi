@@ -413,3 +413,74 @@ func (h *authHandler) SignOut(c *fiber.Ctx) error {
 		"message": "Sign out successfully",
 	})
 }
+
+func (h *authHandler) GoogleAuthURL(c *fiber.Ctx) error {
+	url, err := h.app.Services.Google.AuthCodeURL()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"url": url,
+	})
+}
+
+func (h *authHandler) GoogleAuthCallback(c *fiber.Ctx) error {
+	var dto dto.AuthGoogle
+
+	if err := lib.ValidateRequestQuery(c, &dto); err != nil {
+		switch e := err.(type) {
+		case *lib.ErrValidationFailed:
+			return c.Status(http.StatusBadRequest).JSON(lib.WrapValidationError(e.MessageRecord))
+		default:
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+	}
+
+	rawURL := fmt.Sprintf("%s/v1/auth/google/callback?state=%s&code=%s", h.app.Config.App.ServerURL, dto.State, dto.Code)
+	state, code, err := h.app.Services.Google.URLParse(rawURL)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	authenticateResponse, err := h.app.Services.Google.Authenticate(state, code)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	fmt.Println(authenticateResponse.UserInfo)
+
+	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[any]{
+		Message: "Google auth successfully",
+		Data: fiber.Map{
+			"token": authenticateResponse.Token,
+			"user":  authenticateResponse.UserInfo,
+		},
+
+		// Data: fiber.Map{
+		// 	"uid": authenticateResponse.UserInfo.ID,
+		// 	"email": authenticateResponse.UserInfo.Email,
+		// 	"display_name": strings.Join([]string{authenticateResponse.UserInfo.GivenName, authenticateResponse.UserInfo.FamilyName}, " "),
+		// 	"is_admin": authenticateResponse.UserInfo.ID,
+		// 	"token": authenticateResponse.Token,
+		// 	"user":  authenticateResponse.UserInfo,
+		// },
+
+		// fiber.Map{
+		// 	"uid":           user.ID.String(),
+		// 	"email":         user.Email,
+		// 	"display_name":  strings.Join([]string{user.FirstName, *user.LastName}, " "),
+		// 	"is_admin":      user.RoleID.String() == constant.RoleAdmin,
+		// 	"access_token":  token,
+		// 	"refresh_token": refToken,
+		// },
+	})
+}

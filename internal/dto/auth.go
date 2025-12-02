@@ -43,3 +43,13 @@ type AuthRefreshToken struct {
 func (dto AuthRefreshToken) Validate(v *validator.MapValidator) {
 	v.Field("token").Required().String()
 }
+
+type AuthGoogle struct {
+	State string `json:"state" form:"state"`
+	Code  string `json:"code" form:"code"`
+}
+
+func (dto AuthGoogle) Validate(v *validator.MapValidator) {
+	v.Field("state").Required().String()
+	v.Field("code").Required().String()
+}
