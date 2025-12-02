@@ -7,11 +7,11 @@ CREATE TABLE IF NOT EXISTS "refresh_tokens" (
   "revoked_at" TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_sessions_id ON "refresh_tokens" ("id");
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON "refresh_tokens" ("user_id");
-CREATE INDEX IF NOT EXISTS idx_sessions_token ON "refresh_tokens" ("token");
-CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON "refresh_tokens" ("expires_at");
-CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON "refresh_tokens" ("created_at");
-CREATE INDEX IF NOT EXISTS idx_sessions_revoked_at ON "refresh_tokens" ("revoked_at");
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_id ON "refresh_tokens" ("id");
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON "refresh_tokens" ("user_id");
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON "refresh_tokens" ("token");
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON "refresh_tokens" ("expires_at");
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_created_at ON "refresh_tokens" ("created_at");
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked_at ON "refresh_tokens" ("revoked_at");
 
 ALTER TABLE "refresh_tokens" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
