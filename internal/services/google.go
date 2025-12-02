@@ -36,8 +36,9 @@ type AuthenticateResponse struct {
 }
 
 var (
-	ErrGenerateState     = errors.New("error generate state token")
-	ErrInvalidStateToken = errors.New("invalid state token")
+	ErrGenerateState       = errors.New("error generate state token")
+	ErrInvalidStateToken   = errors.New("invalid state token")
+	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 )
 
 func (s GoogleService) generateStateToken() (string, error) {
@@ -123,15 +124,45 @@ func (s GoogleService) getUserInfo(token *oauth2.Token) (*GoogleUserInfo, error)
 	return &userInfo, nil
 }
 
-func (s GoogleService) URLParse(rawURL string) (string, string, error) {
+func (s GoogleService) URLParse(rawURL string) (state string, code string, err error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", "", fmt.Errorf("error parsing URL: %s", err.Error())
 	}
 
 	queryParams := parsedURL.Query()
-	state := queryParams.Get("state")
-	code := queryParams.Get("code")
+	state = queryParams.Get("state")
+	code = queryParams.Get("code")
 
 	return state, code, nil
+}
+
+// RefreshAccessToken gets a new access token using a refresh token
+// Returns a new token with updated AccessToken and Expiry
+// The RefreshToken in the response may be the same or a new one (depending on provider)
+func (s GoogleService) RefreshAccessToken(refreshToken string) (*oauth2.Token, error) {
+	if refreshToken == "" {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	// Create a token with only the refresh token
+	token := &oauth2.Token{
+		RefreshToken: refreshToken,
+	}
+
+	// Use TokenSource to automatically refresh the token
+	tokenSource := s.Config.TokenSource(context.Background(), token)
+
+	// Get the new token (this will use the refresh token to get a new access token)
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("error refreshing token: %s", err.Error())
+	}
+
+	// Verify that we got a valid access token
+	if newToken.AccessToken == "" {
+		return nil, fmt.Errorf("received empty access token")
+	}
+
+	return newToken, nil
 }
