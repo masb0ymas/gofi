@@ -31,9 +31,15 @@ run:
 		--db-max-open-conns=$(DB_MAX_OPEN_CONNS) \
 		--db-max-idle-conns=$(DB_MAX_IDLE_CONNS) \
 		--db-max-idle-time=$(DB_MAX_IDLE_TIME) \
+		--redis-addr=$(REDIS_ADDR) \
+		--redis-password=$(REDIS_PASSWORD) \
+		--redis-db=$(REDIS_DB) \
 		--resend-api-key=$(RESEND_API_KEY) \
 		--resend-from-email=$(RESEND_FROM_EMAIL) \
-		--resend-debug-to-email=$(RESEND_DEBUG_TO_EMAIL)
+		--resend-debug-to-email=$(RESEND_DEBUG_TO_EMAIL) \
+		--google-client-id=$(GOOGLE_CLIENT_ID) \
+		--google-client-secret=$(GOOGLE_CLIENT_SECRET) \
+		--google-redirect-url=$(GOOGLE_REDIRECT_URL)
 
 # ==================================================================================== #
 # MIGRATIONS

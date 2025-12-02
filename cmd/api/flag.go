@@ -28,10 +28,20 @@ func parseFlag(cfg *config.Config) {
 	flag.IntVar(&cfg.DB.MaxIdleConns, "db-max-idle-conns", 25, "Database max idle connections")
 	flag.DurationVar(&cfg.DB.MaxIdleTime, "db-max-idle-time", 15*time.Minute, "Database max idle time")
 
+	// Redis
+	flag.StringVar(&cfg.Redis.Addr, "redis-addr", "localhost:6379", "Redis address")
+	flag.StringVar(&cfg.Redis.Password, "redis-password", "", "Redis password")
+	flag.IntVar(&cfg.Redis.DB, "redis-db", 0, "Redis database")
+
 	// Resend
 	flag.StringVar(&cfg.Resend.ApiKey, "resend-api-key", "", "Resend API key")
 	flag.StringVar(&cfg.Resend.FromEmail, "resend-from-email", "", "Resend from email")
 	flag.StringVar(&cfg.Resend.DebugToEmail, "resend-debug-to-email", "", "Resend debug to email")
+
+	// Google
+	flag.StringVar(&cfg.Google.ClientID, "google-client-id", "", "Google client ID")
+	flag.StringVar(&cfg.Google.ClientSecret, "google-client-secret", "", "Google client secret")
+	flag.StringVar(&cfg.Google.RedirectURL, "google-redirect-url", "", "Google redirect URL")
 
 	flag.Parse()
 
@@ -73,6 +83,10 @@ func validateFlag(cfg *config.Config) {
 
 	if cfg.DB.DSN == "" {
 		log.Fatal("flag db-dsn must be provided")
+	}
+
+	if cfg.Redis.Addr == "" {
+		log.Fatal("flag redis-addr must be provided")
 	}
 
 	if cfg.Resend.ApiKey == "" {
