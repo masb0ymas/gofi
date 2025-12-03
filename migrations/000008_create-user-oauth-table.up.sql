@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS "user_oauths" (
   "id" UUID PRIMARY KEY NOT NULL DEFAULT uuidv7(),
   "user_id" UUID NOT NULL,
+  "identity_provider_id" TEXT NOT NULL,
   "provider" VARCHAR NOT NULL,
   "access_token" TEXT NOT NULL,
   "refresh_token" TEXT,
@@ -9,6 +10,7 @@ CREATE TABLE IF NOT EXISTS "user_oauths" (
 
 CREATE INDEX IF NOT EXISTS idx_user_oauths_id ON "user_oauths" ("id");
 CREATE INDEX IF NOT EXISTS idx_user_oauths_user_id ON "user_oauths" ("user_id");
+CREATE INDEX IF NOT EXISTS idx_user_oauths_identity_provider_id ON "user_oauths" ("identity_provider_id");
 CREATE INDEX IF NOT EXISTS idx_user_oauths_provider ON "user_oauths" ("provider");
 CREATE INDEX IF NOT EXISTS idx_user_oauths_access_token ON "user_oauths" ("access_token");
 CREATE INDEX IF NOT EXISTS idx_user_oauths_expires_at ON "user_oauths" ("expires_at");
