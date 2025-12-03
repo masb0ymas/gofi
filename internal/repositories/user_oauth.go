@@ -12,6 +12,7 @@ import (
 	"gofi/internal/models"
 
 	"braces.dev/errtrace"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
@@ -19,14 +20,14 @@ type UserOAuthRepository struct {
 	DB *sql.DB
 }
 
-func (r UserOAuthRepository) GetByUserProvider(userID, provider string) (*models.UserOAuth, error) {
-	return r.getByUserProviderExec(r.DB, userID, provider)
+func (r UserOAuthRepository) GetByUserProvider(userID uuid.UUID, provider string) (*models.UserOAuth, error) {
+	return r.GetByUserProviderExec(r.DB, userID, provider)
 }
 
-func (r UserOAuthRepository) getByUserProviderExec(exc Executor, userID, provider string) (*models.UserOAuth, error) {
+func (r UserOAuthRepository) GetByUserProviderExec(exc Executor, userID uuid.UUID, provider string) (*models.UserOAuth, error) {
 	query := `
 		SELECT "id", "user_id", "provider", "access_token", "refresh_token", "expires_at"
-		FROM "users_oauth"
+		FROM "user_oauths"
 		WHERE "user_id" = $1 AND "provider" = $2
 		LIMIT 1;
 	`
@@ -82,7 +83,7 @@ func (r UserOAuthRepository) InsertExec(exc Executor, usersOAuths ...*models.Use
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO "users_oauth" (%s)
+		INSERT INTO "user_oauths" (%s)
 		VALUES %s
 		RETURNING "id";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
@@ -109,6 +110,46 @@ func (r UserOAuthRepository) InsertExec(exc Executor, usersOAuths ...*models.Use
 		if err := rows.Scan(&userOAuth.ID); err != nil {
 			return errtrace.Errorf("error scanning row: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (r UserOAuthRepository) Update(id uuid.UUID, userOAuth *models.UserOAuth) error {
+	return r.UpdateExec(r.DB, id, userOAuth)
+}
+
+func (r UserOAuthRepository) UpdateExec(exc Executor, id uuid.UUID, userOAuth *models.UserOAuth) error {
+	query := `
+		UPDATE "user_oauths"
+		SET "user_id" = $1, "provider" = $2, "access_token" = $3, "refresh_token" = $4, "expires_at" = $5
+		WHERE "id" = $6;
+	`
+
+	args := []any{
+		userOAuth.UserID,
+		userOAuth.Provider,
+		userOAuth.AccessToken,
+		userOAuth.RefreshToken,
+		userOAuth.ExpiresAt,
+		id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := exc.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrEditConflict
 	}
 
 	return nil

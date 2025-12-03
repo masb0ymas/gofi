@@ -458,24 +458,39 @@ func (h *authHandler) GoogleAuthCallback(c *fiber.Ctx) error {
 		})
 	}
 
+	var user *models.User
 	var accessToken string
 
-	_, err = h.app.Repositories.User.GetByEmail(result.UserInfo.Email)
+	user, err = h.app.Repositories.User.GetByEmail(result.UserInfo.Email)
+	// if errors
 	if err != nil {
 		// if users not found, create a new user
 		if errors.Is(err, repositories.ErrRecordNotFound) {
 			// create user from oauth google
-			token, err := h.createUserOAuthGoogle(c, result)
+			accessToken, err = h.createUserOAuthGoogle(c, result)
 			if err != nil {
 				return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 					"message": err.Error(),
 				})
 			}
-
-			accessToken = token
+		} else {
+			fmt.Printf("IS AN ERRORS, THROW ERROR")
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
 		}
-	} else {
+	}
+
+	// if not errors
+	if err == nil {
+		fmt.Printf("IS NOT AN ERRORS, JUST UPDATE THE USER OAUTH")
 		// if user is exists, just insert session and update user oauth
+		accessToken, err = h.updateUserOAuthGoogle(c, user, result)
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
 	}
 
 	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[any]{
@@ -557,4 +572,48 @@ func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services
 	}
 
 	return token, nil
+}
+
+func (h *authHandler) updateUserOAuthGoogle(c *fiber.Ctx, user *models.User, authResponse *services.AuthenticateResponse) (token string, err error) {
+	jsonWebToken := jwt.New(&h.app.Config.App)
+
+	err = lib.WithTransaction(h.app.Repositories.User.DB, func(tx *sql.Tx) error {
+		userOAuth, err := h.app.Repositories.UserOAuth.GetByUserProviderExec(tx, user.ID, "google")
+		if err != nil {
+			return err
+		}
+
+		userOAuth.AccessToken = authResponse.Token.AccessToken
+		userOAuth.RefreshToken = lib.StringPtr(authResponse.Token.RefreshToken)
+		userOAuth.ExpiresAt = time.Unix(authResponse.Token.Expiry.Unix(), 0)
+
+		token, expiresIn, err := jsonWebToken.Generate(&jwt.JWTPayload{
+			UID:       user.ID.String(),
+			Secret:    h.app.Config.App.JWTSecret,
+			ExpiresAt: "1", // 1 day
+		})
+		if err != nil {
+			return err
+		}
+
+		session := &models.Session{
+			Base: models.Base{
+				ID: uuid.Must(uuid.NewV7()),
+			},
+			UserID:    user.ID,
+			Token:     token,
+			ExpiresAt: time.Unix(expiresIn, 0),
+			IPAddress: c.IP(),
+			UserAgent: c.Get("User-Agent"),
+		}
+
+		err = h.app.Repositories.Session.InsertExec(tx, session)
+		if err != nil {
+			return err
+		}
+
+		return h.app.Repositories.UserOAuth.UpdateExec(tx, userOAuth.ID, userOAuth)
+	})
+
+	return token, err
 }
