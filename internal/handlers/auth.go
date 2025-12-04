@@ -460,6 +460,7 @@ func (h *authHandler) GoogleAuthCallback(c *fiber.Ctx) error {
 
 	var user *models.User
 	var accessToken string
+	var refreshToken string
 	var userID uuid.UUID
 
 	user, err = h.app.Repositories.User.GetByEmail(result.UserInfo.Email)
@@ -468,7 +469,7 @@ func (h *authHandler) GoogleAuthCallback(c *fiber.Ctx) error {
 		// if users not found, create a new user
 		if errors.Is(err, repositories.ErrRecordNotFound) {
 			// create user from oauth google
-			userID, accessToken, err = h.createUserOAuthGoogle(c, result)
+			userID, accessToken, refreshToken, err = h.createUserOAuthGoogle(c, result)
 			if err != nil {
 				return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 					"message": err.Error(),
@@ -481,7 +482,7 @@ func (h *authHandler) GoogleAuthCallback(c *fiber.Ctx) error {
 		}
 	} else {
 		// if user is exists, just insert session and update user oauth
-		accessToken, err = h.updateUserOAuthGoogle(c, user, result)
+		accessToken, refreshToken, err = h.updateUserOAuthGoogle(c, user, result)
 		if err != nil {
 			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 				"message": err.Error(),
@@ -499,12 +500,12 @@ func (h *authHandler) GoogleAuthCallback(c *fiber.Ctx) error {
 			"display_name":  result.UserInfo.Name,
 			"is_admin":      false,
 			"access_token":  accessToken,
-			"refresh_token": result.Token.RefreshToken,
+			"refresh_token": refreshToken,
 		},
 	})
 }
 
-func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services.AuthenticateResponse) (userID uuid.UUID, token string, err error) {
+func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services.AuthenticateResponse) (userID uuid.UUID, accessToken string, refreshToken string, err error) {
 	user := &models.User{
 		Base: models.Base{
 			ID:        uuid.Must(uuid.NewV7()),
@@ -525,8 +526,12 @@ func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services
 		ExpiresAt: "1", // 1 day
 	})
 	if err != nil {
-		return uuid.Nil, "", err
+		return uuid.Nil, "", "", err
 	}
+
+	expiresAt := time.Now().Add(time.Hour * 24 * 60) // 60 days
+	rt := lib.NewRefreshToken(&h.app.Config.App)
+	refToken := rt.Generate(user.ID.String(), expiresAt.Unix())
 
 	err = lib.WithTransaction(h.app.Repositories.User.DB, func(tx *sql.Tx) error {
 		err := h.app.Repositories.User.InsertExec(tx, user)
@@ -550,6 +555,19 @@ func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services
 			return err
 		}
 
+		refreshToken := &models.RefreshToken{
+			ID:        uuid.Must(uuid.NewV7()),
+			UserID:    user.ID,
+			Token:     refToken,
+			ExpiresAt: expiresAt,
+			CreatedAt: time.Now(),
+		}
+
+		err = h.app.Repositories.RefreshToken.InsertExec(tx, refreshToken)
+		if err != nil {
+			return err
+		}
+
 		userOAuth := &models.UserOAuth{
 			ID:                 uuid.Must(uuid.NewV7()),
 			UserID:             user.ID,
@@ -564,13 +582,13 @@ func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services
 	})
 
 	if err != nil {
-		return uuid.Nil, "", err
+		return uuid.Nil, "", "", err
 	}
 
-	return user.ID, token, nil
+	return user.ID, token, refToken, nil
 }
 
-func (h *authHandler) updateUserOAuthGoogle(c *fiber.Ctx, user *models.User, authResponse *services.AuthenticateResponse) (token string, err error) {
+func (h *authHandler) updateUserOAuthGoogle(c *fiber.Ctx, user *models.User, authResponse *services.AuthenticateResponse) (accessToken string, refreshToken string, err error) {
 	jsonWebToken := jwt.New(&h.app.Config.App)
 	token, expiresIn, err := jsonWebToken.Generate(&jwt.JWTPayload{
 		UID:       user.ID.String(),
@@ -578,8 +596,12 @@ func (h *authHandler) updateUserOAuthGoogle(c *fiber.Ctx, user *models.User, aut
 		ExpiresAt: "1", // 1 day
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+
+	expiresAt := time.Now().Add(time.Hour * 24 * 60) // 60 days
+	rt := lib.NewRefreshToken(&h.app.Config.App)
+	refToken := rt.Generate(user.ID.String(), expiresAt.Unix())
 
 	err = lib.WithTransaction(h.app.Repositories.User.DB, func(tx *sql.Tx) error {
 		userOAuth, err := h.app.Repositories.UserOAuth.GetByUserProviderExec(tx, user.ID, "google")
@@ -616,8 +638,21 @@ func (h *authHandler) updateUserOAuthGoogle(c *fiber.Ctx, user *models.User, aut
 			return err
 		}
 
+		refreshToken := &models.RefreshToken{
+			ID:        uuid.Must(uuid.NewV7()),
+			UserID:    user.ID,
+			Token:     refToken,
+			ExpiresAt: expiresAt,
+			CreatedAt: time.Now(),
+		}
+
+		err = h.app.Repositories.RefreshToken.InsertExec(tx, refreshToken)
+		if err != nil {
+			return err
+		}
+
 		return h.app.Repositories.UserOAuth.UpdateExec(tx, userOAuth.ID, userOAuth)
 	})
 
-	return token, err
+	return token, refToken, err
 }
