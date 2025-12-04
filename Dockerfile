@@ -56,6 +56,7 @@ ENTRYPOINT ["/bin/sh", "-c", "set -a && . /app/.env && set +a && exec ./api \
     --env=$ENV \
     --port=$PORT \
     --app-name=$APP_NAME \
+    --app-secret=$APP_SECRET \
     --jwt-secret=$JWT_SECRET \
     --client-url=$CLIENT_URL \
     --server-url=$SERVER_URL \
@@ -63,6 +64,12 @@ ENTRYPOINT ["/bin/sh", "-c", "set -a && . /app/.env && set +a && exec ./api \
     --db-max-open-conns=$DB_MAX_OPEN_CONNS \
     --db-max-idle-conns=$DB_MAX_IDLE_CONNS \
     --db-max-idle-time=$DB_MAX_IDLE_TIME \
+    --redis-addr=$REDIS_ADDR \
+    --redis-password=$REDIS_PASSWORD \
+    --redis-db=$REDIS_DB \
     --resend-api-key=$RESEND_API_KEY \
     --resend-from-email=$RESEND_FROM_EMAIL \
-    --resend-debug-to-email=$RESEND_DEBUG_TO_EMAIL"]
+    --resend-debug-to-email=$RESEND_DEBUG_TO_EMAIL \
+    --google-client-id=$GOOGLE_CLIENT_ID \
+    --google-client-secret=$GOOGLE_CLIENT_SECRET \
+    --google-redirect-url=$GOOGLE_REDIRECT_URL"]
