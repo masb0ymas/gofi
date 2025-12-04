@@ -5,7 +5,9 @@ import "time"
 type Config struct {
 	App    ConfigApp
 	DB     ConfigDB
+	Redis  ConfigRedis
 	Resend ConfigResend
+	Google ConfigGoogle
 }
 
 type ConfigApp struct {
@@ -27,8 +29,20 @@ type ConfigDB struct {
 	MaxIdleTime  time.Duration
 }
 
+type ConfigRedis struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
 type ConfigResend struct {
 	ApiKey       string
 	FromEmail    string
 	DebugToEmail string
+}
+
+type ConfigGoogle struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
 }

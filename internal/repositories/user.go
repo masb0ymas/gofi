@@ -343,10 +343,10 @@ func (r UserRepository) InsertExec(exc Executor, users ...*models.User) error {
 }
 
 func (r UserRepository) Update(id uuid.UUID, user *models.User) error {
-	return r.updateExec(r.DB, id, user)
+	return r.UpdateExec(r.DB, id, user)
 }
 
-func (r UserRepository) updateExec(exc Executor, id uuid.UUID, user *models.User) error {
+func (r UserRepository) UpdateExec(exc Executor, id uuid.UUID, user *models.User) error {
 	query := `
 		UPDATE "users"
 		SET "first_name" = $1,

@@ -8,6 +8,7 @@ type Repositories struct {
 	UserVerifyAccount UserVerifyAccountRepository
 	Session           SessionRepository
 	RefreshToken      RefreshTokenRepository
+	UserOAuth         UserOAuthRepository
 }
 
 func New(db *sql.DB) Repositories {
@@ -17,5 +18,6 @@ func New(db *sql.DB) Repositories {
 		UserVerifyAccount: UserVerifyAccountRepository{DB: db},
 		Session:           SessionRepository{DB: db},
 		RefreshToken:      RefreshTokenRepository{DB: db},
+		UserOAuth:         UserOAuthRepository{DB: db},
 	}
 }

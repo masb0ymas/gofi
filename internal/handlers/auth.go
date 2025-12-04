@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"gofi/internal/lib/constant"
 	"gofi/internal/lib/jwt"
 	"gofi/internal/models"
+	"gofi/internal/repositories"
 	"gofi/internal/services"
 	"gofi/internal/types"
 
@@ -412,4 +414,245 @@ func (h *authHandler) SignOut(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"message": "Sign out successfully",
 	})
+}
+
+func (h *authHandler) GoogleAuthURL(c *fiber.Ctx) error {
+	url, err := h.app.Services.Google.AuthCodeURL()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"url": url,
+	})
+}
+
+func (h *authHandler) GoogleAuthCallback(c *fiber.Ctx) error {
+	var dto dto.AuthGoogle
+
+	if err := lib.ValidateRequestQuery(c, &dto); err != nil {
+		switch e := err.(type) {
+		case *lib.ErrValidationFailed:
+			return c.Status(http.StatusBadRequest).JSON(lib.WrapValidationError(e.MessageRecord))
+		default:
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+	}
+
+	rawURL := fmt.Sprintf("%s/v1/auth/google/callback?state=%s&code=%s", h.app.Config.App.ServerURL, dto.State, dto.Code)
+	state, code, err := h.app.Services.Google.URLParse(rawURL)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	result, err := h.app.Services.Google.Authenticate(state, code)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	var user *models.User
+	var accessToken string
+	var refreshToken string
+	var userID uuid.UUID
+
+	user, err = h.app.Repositories.User.GetByEmail(result.UserInfo.Email)
+	// if errors
+	if err != nil {
+		// if users not found, create a new user
+		if errors.Is(err, repositories.ErrRecordNotFound) {
+			// create user from oauth google
+			userID, accessToken, refreshToken, err = h.createUserOAuthGoogle(c, result)
+			if err != nil {
+				return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+					"message": err.Error(),
+				})
+			}
+		} else {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+	} else {
+		// if user is exists, just insert session and update user oauth
+		accessToken, refreshToken, err = h.updateUserOAuthGoogle(c, user, result)
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+
+		userID = user.ID
+	}
+
+	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[any]{
+		Message: "Google auth successfully",
+		Data: fiber.Map{
+			"uid":           userID,
+			"email":         result.UserInfo.Email,
+			"display_name":  result.UserInfo.Name,
+			"is_admin":      false,
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+		},
+	})
+}
+
+func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services.AuthenticateResponse) (userID uuid.UUID, accessToken string, refreshToken string, err error) {
+	user := &models.User{
+		Base: models.Base{
+			ID:        uuid.Must(uuid.NewV7()),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		FirstName: authResponse.UserInfo.GivenName,
+		LastName:  lib.StringPtr(authResponse.UserInfo.FamilyName),
+		Email:     authResponse.UserInfo.Email,
+		ActiveAt:  lib.TimePtr(time.Now()),
+		RoleID:    uuid.MustParse(constant.RoleUser),
+	}
+
+	jsonWebToken := jwt.New(&h.app.Config.App)
+	token, expiresIn, err := jsonWebToken.Generate(&jwt.JWTPayload{
+		UID:       user.ID.String(),
+		Secret:    h.app.Config.App.JWTSecret,
+		ExpiresAt: "1", // 1 day
+	})
+	if err != nil {
+		return uuid.Nil, "", "", err
+	}
+
+	expiresAt := time.Now().Add(time.Hour * 24 * 60) // 60 days
+	rt := lib.NewRefreshToken(&h.app.Config.App)
+	refToken := rt.Generate(user.ID.String(), expiresAt.Unix())
+
+	err = lib.WithTransaction(h.app.Repositories.User.DB, func(tx *sql.Tx) error {
+		err := h.app.Repositories.User.InsertExec(tx, user)
+		if err != nil {
+			return err
+		}
+
+		session := &models.Session{
+			Base: models.Base{
+				ID: uuid.Must(uuid.NewV7()),
+			},
+			UserID:    user.ID,
+			Token:     token,
+			ExpiresAt: time.Unix(expiresIn, 0),
+			IPAddress: c.IP(),
+			UserAgent: c.Get("User-Agent"),
+		}
+
+		err = h.app.Repositories.Session.InsertExec(tx, session)
+		if err != nil {
+			return err
+		}
+
+		refreshToken := &models.RefreshToken{
+			ID:        uuid.Must(uuid.NewV7()),
+			UserID:    user.ID,
+			Token:     refToken,
+			ExpiresAt: expiresAt,
+			CreatedAt: time.Now(),
+		}
+
+		err = h.app.Repositories.RefreshToken.InsertExec(tx, refreshToken)
+		if err != nil {
+			return err
+		}
+
+		userOAuth := &models.UserOAuth{
+			ID:                 uuid.Must(uuid.NewV7()),
+			UserID:             user.ID,
+			IdentityProviderID: authResponse.UserInfo.ID,
+			Provider:           "google",
+			AccessToken:        authResponse.Token.AccessToken,
+			RefreshToken:       lib.StringPtr(authResponse.Token.RefreshToken),
+			ExpiresAt:          time.Unix(authResponse.Token.Expiry.Unix(), 0),
+		}
+
+		return h.app.Repositories.UserOAuth.InsertExec(tx, userOAuth)
+	})
+
+	if err != nil {
+		return uuid.Nil, "", "", err
+	}
+
+	return user.ID, token, refToken, nil
+}
+
+func (h *authHandler) updateUserOAuthGoogle(c *fiber.Ctx, user *models.User, authResponse *services.AuthenticateResponse) (accessToken string, refreshToken string, err error) {
+	jsonWebToken := jwt.New(&h.app.Config.App)
+	token, expiresIn, err := jsonWebToken.Generate(&jwt.JWTPayload{
+		UID:       user.ID.String(),
+		Secret:    h.app.Config.App.JWTSecret,
+		ExpiresAt: "1", // 1 day
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	expiresAt := time.Now().Add(time.Hour * 24 * 60) // 60 days
+	rt := lib.NewRefreshToken(&h.app.Config.App)
+	refToken := rt.Generate(user.ID.String(), expiresAt.Unix())
+
+	err = lib.WithTransaction(h.app.Repositories.User.DB, func(tx *sql.Tx) error {
+		userOAuth, err := h.app.Repositories.UserOAuth.GetByUserProviderExec(tx, user.ID, "google")
+		if err != nil {
+			return err
+		}
+
+		userOAuth.AccessToken = authResponse.Token.AccessToken
+		userOAuth.RefreshToken = lib.StringPtr(authResponse.Token.RefreshToken)
+		userOAuth.ExpiresAt = time.Unix(authResponse.Token.Expiry.Unix(), 0)
+
+		user.FirstName = authResponse.UserInfo.GivenName
+		user.LastName = lib.StringPtr(authResponse.UserInfo.FamilyName)
+		user.Email = authResponse.UserInfo.Email
+
+		err = h.app.Repositories.User.UpdateExec(tx, user.ID, user)
+		if err != nil {
+			return err
+		}
+
+		session := &models.Session{
+			Base: models.Base{
+				ID: uuid.Must(uuid.NewV7()),
+			},
+			UserID:    user.ID,
+			Token:     token,
+			ExpiresAt: time.Unix(expiresIn, 0),
+			IPAddress: c.IP(),
+			UserAgent: c.Get("User-Agent"),
+		}
+
+		err = h.app.Repositories.Session.InsertExec(tx, session)
+		if err != nil {
+			return err
+		}
+
+		refreshToken := &models.RefreshToken{
+			ID:        uuid.Must(uuid.NewV7()),
+			UserID:    user.ID,
+			Token:     refToken,
+			ExpiresAt: expiresAt,
+			CreatedAt: time.Now(),
+		}
+
+		err = h.app.Repositories.RefreshToken.InsertExec(tx, refreshToken)
+		if err != nil {
+			return err
+		}
+
+		return h.app.Repositories.UserOAuth.UpdateExec(tx, userOAuth.ID, userOAuth)
+	})
+
+	return token, refToken, err
 }

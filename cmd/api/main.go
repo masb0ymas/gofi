@@ -31,13 +31,23 @@ func main() {
 	}
 	defer db.Close()
 
+	redisClient, err := connectRedis(&cfg.Redis)
+	if err != nil {
+		logger.Error("failed to connect to redis", "error", err.Error())
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+
+	googleOAuthConfig := newGoogleOAuth(cfg.Google)
+
 	// Dependencies Injection
 	app := &app.Application{
 		Config:       cfg,
 		Logger:       logger,
 		Repositories: repositories.New(db),
 		Services: services.Services{
-			Email: services.EmailService{Config: cfg.Resend},
+			Email:  services.EmailService{Config: cfg.Resend},
+			Google: services.GoogleService{Config: googleOAuthConfig, RedisClient: redisClient},
 		},
 	}
 
