@@ -26,7 +26,7 @@ func (r UserOAuthRepository) GetByUserProvider(userID uuid.UUID, provider string
 
 func (r UserOAuthRepository) GetByUserProviderExec(exc Executor, userID uuid.UUID, provider string) (*models.UserOAuth, error) {
 	query := `
-		SELECT "id", "user_id", "identity_provider_id", "provider", "access_token", "refresh_token", "expires_at"
+		SELECT "id", "user_id", "identity_id", "provider", "access_token", "refresh_token", "expires_at"
 		FROM "user_oauths"
 		WHERE "user_id" = $1 AND "provider" = $2
 		LIMIT 1;
@@ -39,7 +39,7 @@ func (r UserOAuthRepository) GetByUserProviderExec(exc Executor, userID uuid.UUI
 	err := exc.QueryRowContext(ctx, query, userID, provider).Scan(
 		&userOAuth.ID,
 		&userOAuth.UserID,
-		&userOAuth.IdentityProviderID,
+		&userOAuth.IdentityID,
 		&userOAuth.Provider,
 		&userOAuth.AccessToken,
 		&userOAuth.RefreshToken,
@@ -66,13 +66,13 @@ func (r UserOAuthRepository) InsertExec(exc Executor, usersOAuths ...*models.Use
 		return nil
 	}
 
-	columns := []string{"id", "user_id", "identity_provider_id", "provider", "access_token", "refresh_token", "expires_at"}
+	columns := []string{"id", "user_id", "identity_id", "provider", "access_token", "refresh_token", "expires_at"}
 
 	valueStrings := make([]string, 0, len(usersOAuths))
 	valueArgs := make([]any, 0, len(usersOAuths)*len(columns))
 
 	for i, userOAuth := range usersOAuths {
-		values := []any{userOAuth.ID, userOAuth.UserID, userOAuth.IdentityProviderID, userOAuth.Provider, userOAuth.AccessToken, userOAuth.RefreshToken, userOAuth.ExpiresAt}
+		values := []any{userOAuth.ID, userOAuth.UserID, userOAuth.IdentityID, userOAuth.Provider, userOAuth.AccessToken, userOAuth.RefreshToken, userOAuth.ExpiresAt}
 
 		placeholders := make([]string, 0, len(values))
 		for j := range columns {
@@ -123,13 +123,13 @@ func (r UserOAuthRepository) Update(id uuid.UUID, userOAuth *models.UserOAuth) e
 func (r UserOAuthRepository) UpdateExec(exc Executor, id uuid.UUID, userOAuth *models.UserOAuth) error {
 	query := `
 		UPDATE "user_oauths"
-		SET "user_id" = $1, "identity_provider_id" = $2, "provider" = $3, "access_token" = $4, "refresh_token" = $5, "expires_at" = $6
+		SET "user_id" = $1, "identity_id" = $2, "provider" = $3, "access_token" = $4, "refresh_token" = $5, "expires_at" = $6
 		WHERE "id" = $7;
 	`
 
 	args := []any{
 		userOAuth.UserID,
-		userOAuth.IdentityProviderID,
+		userOAuth.IdentityID,
 		userOAuth.Provider,
 		userOAuth.AccessToken,
 		userOAuth.RefreshToken,

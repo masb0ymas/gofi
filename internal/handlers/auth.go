@@ -569,13 +569,13 @@ func (h *authHandler) createUserOAuthGoogle(c *fiber.Ctx, authResponse *services
 		}
 
 		userOAuth := &models.UserOAuth{
-			ID:                 uuid.Must(uuid.NewV7()),
-			UserID:             user.ID,
-			IdentityProviderID: authResponse.UserInfo.ID,
-			Provider:           "google",
-			AccessToken:        authResponse.Token.AccessToken,
-			RefreshToken:       lib.StringPtr(authResponse.Token.RefreshToken),
-			ExpiresAt:          time.Unix(authResponse.Token.Expiry.Unix(), 0),
+			ID:           uuid.Must(uuid.NewV7()),
+			UserID:       user.ID,
+			IdentityID:   authResponse.UserInfo.ID,
+			Provider:     "google",
+			AccessToken:  authResponse.Token.AccessToken,
+			RefreshToken: lib.StringPtr(authResponse.Token.RefreshToken),
+			ExpiresAt:    time.Unix(authResponse.Token.Expiry.Unix(), 0),
 		}
 
 		return h.app.Repositories.UserOAuth.InsertExec(tx, userOAuth)
