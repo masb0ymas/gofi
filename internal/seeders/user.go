@@ -20,6 +20,8 @@ func (s UserSeeder) Name() string {
 	return "user"
 }
 
+var defaultPassword = "password"
+
 func (s UserSeeder) Seed() {
 	users := []*models.User{
 		{
@@ -30,7 +32,7 @@ func (s UserSeeder) Seed() {
 			LastName:  lib.StringPtr("System"),
 			Email:     "admin@localhost.test",
 			Phone:     nil,
-			Password:  lib.StringPtr("password"),
+			Password:  lib.StringPtr(defaultPassword),
 			ActiveAt:  lib.TimePtr(time.Now()),
 			RoleID:    uuid.MustParse(constant.RoleAdmin),
 			UploadID:  nil,
@@ -43,7 +45,7 @@ func (s UserSeeder) Seed() {
 			LastName:  nil,
 			Email:     "user@localhost.test",
 			Phone:     nil,
-			Password:  lib.StringPtr("password"),
+			Password:  lib.StringPtr(defaultPassword),
 			ActiveAt:  lib.TimePtr(time.Now()),
 			RoleID:    uuid.MustParse(constant.RoleUser),
 			UploadID:  nil,
