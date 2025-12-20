@@ -33,3 +33,10 @@ export RESEND_DEBUG_TO_EMAIL=
 export GOOGLE_CLIENT_ID=
 export GOOGLE_CLIENT_SECRET=
 export GOOGLE_REDIRECT_URL=http://localhost:8080
+
+# S3
+export S3_CLIENT_ID=
+export S3_CLIENT_SECRET=
+export S3_REGION=
+export S3_ENDPOINT=
+export S3_TOKEN=
