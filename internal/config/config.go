@@ -8,6 +8,7 @@ type Config struct {
 	Redis  ConfigRedis
 	Resend ConfigResend
 	Google ConfigGoogle
+	S3     ConfigS3
 }
 
 type ConfigApp struct {
@@ -45,4 +46,12 @@ type ConfigGoogle struct {
 	ClientID     string
 	ClientSecret string
 	RedirectURL  string
+}
+
+type ConfigS3 struct {
+	ClientID     string
+	ClientSecret string
+	Region       string
+	Endpoint     string
+	Token        string
 }
