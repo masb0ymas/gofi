@@ -43,6 +43,13 @@ func parseFlag(cfg *config.Config) {
 	flag.StringVar(&cfg.Google.ClientSecret, "google-client-secret", "", "Google client secret")
 	flag.StringVar(&cfg.Google.RedirectURL, "google-redirect-url", "", "Google redirect URL")
 
+	// S3
+	flag.StringVar(&cfg.S3.ClientID, "s3-client-id", "", "S3 client ID")
+	flag.StringVar(&cfg.S3.ClientSecret, "s3-client-secret", "", "S3 client secret")
+	flag.StringVar(&cfg.S3.Region, "s3-region", "", "S3 region")
+	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", "", "S3 endpoint")
+	flag.StringVar(&cfg.S3.Token, "s3-token", "", "S3 token")
+
 	flag.Parse()
 
 	uint16Max := uint(1<<16 - 1)

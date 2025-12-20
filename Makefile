@@ -39,7 +39,12 @@ run:
 		--resend-debug-to-email=$(RESEND_DEBUG_TO_EMAIL) \
 		--google-client-id=$(GOOGLE_CLIENT_ID) \
 		--google-client-secret=$(GOOGLE_CLIENT_SECRET) \
-		--google-redirect-url=$(GOOGLE_REDIRECT_URL)
+		--google-redirect-url=$(GOOGLE_REDIRECT_URL) \
+		--s3-client-id=$(S3_CLIENT_ID) \
+		--s3-client-secret=$(S3_CLIENT_SECRET) \
+		--s3-region=$(S3_REGION) \
+		--s3-endpoint=$(S3_ENDPOINT) \
+		--s3-token=$(S3_TOKEN)
 
 # ==================================================================================== #
 # MIGRATIONS
