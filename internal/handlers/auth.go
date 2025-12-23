@@ -188,8 +188,15 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 		CreatedAt: time.Now(),
 	}
 
+	var displayName string
+	if user.LastName != nil && *user.LastName != "" {
+		displayName = strings.Join([]string{user.FirstName, *user.LastName}, " ")
+	} else {
+		displayName = user.FirstName
+	}
+
 	err = lib.WithTransaction(h.app.Repositories.Session.DB, func(tx *sql.Tx) error {
-		err = h.app.Repositories.Session.InsertExec(tx, session)
+		err := h.app.Repositories.Session.InsertExec(tx, session)
 		if err != nil {
 			return err
 		}
@@ -208,7 +215,7 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 		Data: fiber.Map{
 			"uid":           user.ID.String(),
 			"email":         user.Email,
-			"display_name":  strings.Join([]string{user.FirstName, *user.LastName}, " "),
+			"display_name":  displayName,
 			"is_admin":      user.RoleID.String() == constant.RoleAdmin,
 			"access_token":  token,
 			"refresh_token": refToken,

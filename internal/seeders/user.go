@@ -13,16 +13,17 @@ import (
 )
 
 type UserSeeder struct {
-	DB *sql.DB
+	DB     *sql.DB
+	AppPwd string
 }
 
 func (s UserSeeder) Name() string {
 	return "user"
 }
 
-var defaultPassword = "password"
-
 func (s UserSeeder) Seed() {
+	var defaultPassword = lib.StringPtr(s.AppPwd)
+
 	users := []*models.User{
 		{
 			Base: models.Base{
@@ -32,7 +33,7 @@ func (s UserSeeder) Seed() {
 			LastName:  lib.StringPtr("System"),
 			Email:     "admin@localhost.test",
 			Phone:     nil,
-			Password:  lib.StringPtr(defaultPassword),
+			Password:  defaultPassword,
 			ActiveAt:  lib.TimePtr(time.Now()),
 			RoleID:    uuid.MustParse(constant.RoleAdmin),
 			UploadID:  nil,
@@ -45,7 +46,7 @@ func (s UserSeeder) Seed() {
 			LastName:  nil,
 			Email:     "user@localhost.test",
 			Phone:     nil,
-			Password:  lib.StringPtr(defaultPassword),
+			Password:  defaultPassword,
 			ActiveAt:  lib.TimePtr(time.Now()),
 			RoleID:    uuid.MustParse(constant.RoleUser),
 			UploadID:  nil,
