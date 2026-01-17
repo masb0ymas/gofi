@@ -21,7 +21,7 @@ RUN make build/api
 RUN make build/migrate
 
 # Create the final image
-FROM alpine:3.21
+FROM alpine:3.23.2
 LABEL author="masb0ymas"
 LABEL name="gofi"
 
