@@ -14,6 +14,7 @@ import (
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type UserRepository struct {
@@ -74,6 +75,11 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 	}
 
 	query := queryBuilder.String()
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -137,6 +143,11 @@ func (r UserRepository) getExec(exc Executor, id uuid.UUID) (*models.User, error
 		WHERE "u"."id" = $1 AND "u"."deleted_at" IS NULL;
 	`, selectFields, selectRoleFields)
 
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -186,6 +197,11 @@ func (r UserRepository) getByIDExec(exc Executor, id uuid.UUID) (*models.User, e
 					"u"."deleted_at" IS NULL;
 	`
 
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -222,6 +238,11 @@ func (r UserRepository) getByEmailExec(exc Executor, email string) (*models.User
 				"u"."blocked_at" IS NULL AND
 				"u"."deleted_at" IS NULL;
 	`
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -315,6 +336,11 @@ func (r UserRepository) InsertExec(exc Executor, users ...*models.User) error {
 		RETURNING "id", "created_at", "updated_at";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
 
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -360,6 +386,11 @@ func (r UserRepository) UpdateExec(exc Executor, id uuid.UUID, user *models.User
 				"updated_at" = now()
 		WHERE "id" = $9;
 	`
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	args := []any{
 		user.FirstName,

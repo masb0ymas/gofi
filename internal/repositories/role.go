@@ -14,6 +14,7 @@ import (
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type RoleRepository struct {
@@ -73,6 +74,11 @@ func (r RoleRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Ro
 
 	query := queryBuilder.String()
 
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -109,6 +115,11 @@ func (r RoleRepository) getExec(exc Executor, id uuid.UUID) (*models.Role, error
 		FROM "roles"
 		WHERE "id" = $1;
 	`
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -159,6 +170,11 @@ func (r RoleRepository) insertExec(exc Executor, roles ...*models.Role) error {
 		RETURNING "id", "created_at", "updated_at";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
 
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -196,6 +212,11 @@ func (r RoleRepository) updateExec(exc Executor, id uuid.UUID, role *models.Role
 		SET "name" = $1, "updated_at" = now()
 		WHERE "id" = $2;
 	`
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	args := []any{
 		role.Name,
