@@ -9,15 +9,18 @@ import (
 	"strings"
 	"time"
 
+	"gofi/internal/config"
 	"gofi/internal/models"
 
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type UserVerifyAccountRepository struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Config *config.ConfigApp
 }
 
 func (r UserVerifyAccountRepository) Get(id uuid.UUID, token string) (*models.UserVerifyAccount, error) {
@@ -30,6 +33,11 @@ func (r UserVerifyAccountRepository) getExec(exc Executor, id uuid.UUID, token s
 		FROM "user_verify_accounts"
 		WHERE "id" = $1 AND "token" = $2;
 	`
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -79,6 +87,11 @@ func (r UserVerifyAccountRepository) InsertExec(exc Executor, users ...*models.U
 		VALUES %s
 		RETURNING "id";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

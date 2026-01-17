@@ -4,22 +4,30 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"gofi/internal/config"
 	"time"
 
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
+	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type BaseRepository struct {
 	DB        *sql.DB
 	TableName string
+	Config    *config.ConfigApp
 }
 
-func (b BaseRepository) countExec(exc Executor) (int64, error) {
+func (r BaseRepository) countExec(exc Executor) (int64, error) {
 	query := fmt.Sprintf(`
 		SELECT COUNT(*) 
 		FROM "%s";
-	`, b.TableName)
+	`, r.TableName)
+
+	if r.Config != nil && r.Config.Debug {
+		fmt.Println()
+		sqlfmt.PrettyPrint(query)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -37,11 +45,11 @@ func (b BaseRepository) countExec(exc Executor) (int64, error) {
 	return count, nil
 }
 
-func (b BaseRepository) deleteExec(exc Executor, id uuid.UUID) error {
+func (r BaseRepository) deleteExec(exc Executor, id uuid.UUID) error {
 	query := fmt.Sprintf(`
 		DELETE FROM "%s" 
 		WHERE "id" = $1;
-	`, b.TableName)
+	`, r.TableName)
 
 	args := []any{id}
 
@@ -65,12 +73,12 @@ func (b BaseRepository) deleteExec(exc Executor, id uuid.UUID) error {
 	return nil
 }
 
-func (b BaseRepository) softDeleteExec(exc Executor, id uuid.UUID) error {
+func (r BaseRepository) softDeleteExec(exc Executor, id uuid.UUID) error {
 	query := fmt.Sprintf(`
 		UPDATE "%s" 
 		SET "deleted_at" = now() 
 		WHERE "id" = $1;
-	`, b.TableName)
+	`, r.TableName)
 
 	args := []any{id}
 
@@ -94,12 +102,12 @@ func (b BaseRepository) softDeleteExec(exc Executor, id uuid.UUID) error {
 	return nil
 }
 
-func (b BaseRepository) restoreExec(exc Executor, id uuid.UUID) error {
+func (r BaseRepository) restoreExec(exc Executor, id uuid.UUID) error {
 	query := fmt.Sprintf(`
 		UPDATE "%s" 
 		SET "deleted_at" = NULL 
 		WHERE "id" = $1;
-	`, b.TableName)
+	`, r.TableName)
 
 	args := []any{id}
 

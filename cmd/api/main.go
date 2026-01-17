@@ -46,7 +46,7 @@ func main() {
 	app := &app.Application{
 		Config:       cfg,
 		Logger:       logger,
-		Repositories: repositories.New(db),
+		Repositories: repositories.New(db, &cfg.App),
 		Services: services.Services{
 			Email:  services.EmailService{Config: cfg.Resend},
 			Google: services.GoogleService{Config: googleOAuthConfig, RedisClient: redisClient},
