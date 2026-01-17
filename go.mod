@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.93.2
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/golang-migrate/migrate/v4 v4.19.0
+	github.com/maxrichie5/go-sqlfmt v0.0.0-20241025195225-e353be92414a
 	github.com/redis/go-redis/v9 v9.17.1
 	golang.org/x/crypto v0.44.0
 )
