@@ -13,9 +13,9 @@ type AuthSignUp struct {
 func (dto AuthSignUp) Validate(v *validator.MapValidator) {
 	v.Field("first_name").Required().String()
 	v.Field("last_name").String()
-	v.Field("email").Required().String()
+	v.Field("email").Required().String().Email()
 	v.Field("phone").String()
-	v.Field("password").Required().String()
+	v.Field("password").Required().String().MinS(8)
 }
 
 type AuthSignIn struct {
@@ -24,7 +24,7 @@ type AuthSignIn struct {
 }
 
 func (dto AuthSignIn) Validate(v *validator.MapValidator) {
-	v.Field("email").Required().String()
+	v.Field("email").Required().String().Email()
 	v.Field("password").Required().String()
 }
 

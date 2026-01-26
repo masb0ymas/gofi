@@ -13,7 +13,7 @@ type User struct {
 	FirstName string     `db:"first_name" json:"first_name"`
 	LastName  *string    `db:"last_name" json:"last_name,omitempty"`
 	Email     string     `db:"email" json:"email"`
-	Password  *string    `db:"password" json:"password,omitempty"`
+	Password  *string    `db:"password" json:"-"`
 	Phone     *string    `db:"phone" json:"phone,omitempty"`
 	ActiveAt  *time.Time `db:"active_at" json:"active_at,omitempty"`
 	BlockedAt *time.Time `db:"blocked_at" json:"blocked_at,omitempty"`

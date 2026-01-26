@@ -48,7 +48,20 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 	orderBy := `"u"."created_at"`
 	order := "DESC"
 
+	// Whitelist of allowed columns for ORDER BY to prevent SQL injection
+	allowedOrderByColumns := map[string]bool{
+		`"u"."id"`:         true,
+		`"u"."created_at"`: true,
+		`"u"."updated_at"`: true,
+		`"u"."first_name"`: true,
+		`"u"."last_name"`:  true,
+		`"u"."email"`:      true,
+	}
+
 	if opts.OrderBy != "" {
+		if !allowedOrderByColumns[opts.OrderBy] {
+			return nil, PaginationMetadata{}, errtrace.New("invalid order by column")
+		}
 		orderBy = opts.OrderBy
 	}
 

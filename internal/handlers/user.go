@@ -58,7 +58,7 @@ func (h *userHandler) Show(c *fiber.Ctx) error {
 	userID, err := lib.ContextParamUUID(c, "userID")
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid role id must be uuid format",
+			"message": "invalid user id must be uuid format",
 			"error":   err.Error(),
 		})
 	}
