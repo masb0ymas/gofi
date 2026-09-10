@@ -14,9 +14,9 @@ import (
 
 func (m Middlewares) Authorization() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		jwt := jwt.New(&m.app.Config.App)
+		jsonWebToken := jwt.New(&m.app.Config.App)
 
-		extractToken, err := jwt.ExtractToken(c)
+		extractToken, err := jsonWebToken.ExtractToken(c)
 		if err != nil {
 			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 				"message": fmt.Sprintf("Unauthorized, %s", err.Error()),
@@ -31,7 +31,7 @@ func (m Middlewares) Authorization() fiber.Handler {
 		}
 
 		if session.ID != uuid.Nil {
-			claims, err := jwt.Verify(extractToken)
+			claims, err := jsonWebToken.Verify(extractToken)
 			if err != nil {
 				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 					"message": fmt.Sprintf("Unauthorized, %s", err.Error()),
@@ -50,7 +50,14 @@ func (m Middlewares) Authorization() fiber.Handler {
 				})
 			}
 
-			lib.ContextSetUID(c, uuid.MustParse(claims.UID))
+			uid, err := uuid.Parse(claims.UID)
+			if err != nil {
+				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+					"message": "Unauthorized, invalid session",
+				})
+			}
+
+			lib.ContextSetUID(c, uid)
 		}
 
 		return c.Next()

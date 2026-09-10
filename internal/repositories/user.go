@@ -117,7 +117,7 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 		users = append(users, user)
 	}
 
-	count, err := r.Count()
+	count, err := r.countExec(exc)
 	if err != nil {
 		return nil, PaginationMetadata{}, errtrace.Wrap(err)
 	}

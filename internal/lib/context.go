@@ -8,12 +8,22 @@ import (
 )
 
 func ContextGetUID(c *fiber.Ctx) (uuid.UUID, error) {
-	if c.Locals("uid") != nil {
-		uid := uuid.MustParse(c.Locals("uid").(string))
-		return uid, nil
+	value := c.Locals("uid")
+	if value == nil {
+		return uuid.Nil, errors.New("can't find get context auth, please check your authorization")
 	}
 
-	return uuid.Nil, errors.New("can't find get context auth, please check your authorization")
+	raw, ok := value.(string)
+	if !ok {
+		return uuid.Nil, errors.New("invalid uid in context, please check your authorization")
+	}
+
+	uid, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, errors.New("invalid uid in context, please check your authorization")
+	}
+
+	return uid, nil
 }
 
 func ContextSetUID(c *fiber.Ctx, uid uuid.UUID) {

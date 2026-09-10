@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-func (h *Argon2) Compare(encodedHash string, password string) (match bool, err error) {
+func (h *Argon2) Compare(password string, encodedHash string) (match bool, err error) {
 	cfg, salt, hash, err := h.decodeHash(encodedHash)
 	if err != nil {
 		return false, err

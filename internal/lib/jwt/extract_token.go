@@ -22,15 +22,15 @@ func (j *JWT) ExtractToken(c *fiber.Ctx) (string, error) {
 		// Bearer <token>
 		parts := strings.Split(contextHeader, " ")
 		if len(parts) != 2 {
-			return "", ErrInvalidToken
+			return "", ErrInvalidTokenFormat
 		}
 
 		if parts[0] != "Bearer" || parts[1] == "" {
-			return "", ErrInvalidToken
+			return "", ErrInvalidTokenFormat
 		}
 
 		return parts[1], nil
 	}
 
-	return "", ErrInvalidToken
+	return "", ErrTokenNotFound
 }

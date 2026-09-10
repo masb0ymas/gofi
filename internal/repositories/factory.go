@@ -17,8 +17,8 @@ type Repositories struct {
 
 func New(db *sql.DB, config *config.ConfigApp) Repositories {
 	return Repositories{
-		Role:              RoleRepository{BaseRepository: BaseRepository{DB: db, TableName: "roles", Config: config}},
-		User:              UserRepository{BaseRepository: BaseRepository{DB: db, TableName: "users", Config: config}},
+		Role:              RoleRepository{BaseRepository: BaseRepository{DB: db, TableName: "roles", Config: config, SoftDelete: true}},
+		User:              UserRepository{BaseRepository: BaseRepository{DB: db, TableName: "users", Config: config, SoftDelete: true}},
 		UserVerifyAccount: UserVerifyAccountRepository{BaseRepository: BaseRepository{DB: db, TableName: "user_verify_accounts", Config: config}},
 		Session:           SessionRepository{BaseRepository: BaseRepository{DB: db, TableName: "sessions", Config: config}},
 		RefreshToken:      RefreshTokenRepository{BaseRepository: BaseRepository{DB: db, TableName: "refresh_tokens", Config: config}},

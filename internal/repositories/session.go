@@ -105,7 +105,7 @@ func (r SessionRepository) listExec(exc Executor, opts *QueryOptions) ([]*models
 		sessions = append(sessions, session)
 	}
 
-	count, err := r.Count()
+	count, err := r.countExec(exc)
 	if err != nil {
 		return nil, PaginationMetadata{}, errtrace.Errorf("error counting rows: %w", err)
 	}

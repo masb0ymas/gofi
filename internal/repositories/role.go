@@ -91,7 +91,7 @@ func (r RoleRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Ro
 		roles = append(roles, role)
 	}
 
-	count, err := r.Count()
+	count, err := r.countExec(exc)
 	if err != nil {
 		return nil, PaginationMetadata{}, errtrace.Wrap(err)
 	}

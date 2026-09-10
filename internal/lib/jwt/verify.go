@@ -25,10 +25,25 @@ func (j *JWT) Verify(extractToken string) (*JWTClaims, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		exp, ok := claims["exp"].(float64)
+		if !ok {
+			return nil, ErrInvalidToken
+		}
+
+		iss, ok := claims["iss"].(string)
+		if !ok {
+			return nil, ErrInvalidToken
+		}
+
+		uid, ok := claims["uid"].(string)
+		if !ok {
+			return nil, ErrInvalidToken
+		}
+
 		return &JWTClaims{
-			Exp: int64(claims["exp"].(float64)),
-			Iss: claims["iss"].(string),
-			UID: claims["uid"].(string),
+			Exp: int64(exp),
+			Iss: iss,
+			UID: uid,
 		}, nil
 	}
 

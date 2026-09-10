@@ -18,6 +18,9 @@ type BaseRepository struct {
 	DB        *sql.DB
 	TableName string
 	Config    *config.ConfigApp
+	// SoftDelete marks tables that carry a "deleted_at" column, so row counts
+	// can exclude soft-deleted rows.
+	SoftDelete bool
 }
 
 func (r BaseRepository) debugQuery(query string) {
@@ -32,6 +35,14 @@ func (r BaseRepository) countExec(exc Executor) (int64, error) {
 		SELECT COUNT(*)
 		FROM "%s";
 	`, r.TableName)
+
+	if r.SoftDelete {
+		query = fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM "%s"
+		WHERE "deleted_at" IS NULL;
+		`, r.TableName)
+	}
 
 	r.debugQuery(query)
 
