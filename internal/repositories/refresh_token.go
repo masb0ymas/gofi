@@ -9,18 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"gofi/internal/config"
 	"gofi/internal/models"
 
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type RefreshTokenRepository struct {
-	DB     *sql.DB
-	Config *config.ConfigApp
+	BaseRepository
 }
 
 func (r RefreshTokenRepository) Get(userID uuid.UUID, token string) (*models.RefreshToken, error) {
@@ -34,10 +31,7 @@ func (r RefreshTokenRepository) getExec(exc Executor, userID uuid.UUID, token st
 		WHERE "user_id" = $1 AND "token" = $2 AND "expires_at" > now() AND "revoked_at" IS NULL;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -95,10 +89,7 @@ func (r RefreshTokenRepository) InsertExec(exc Executor, refreshTokens ...*model
 		RETURNING "id", "created_at";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -138,10 +129,7 @@ func (r RefreshTokenRepository) updateExec(exc Executor, refreshToken *models.Re
 		WHERE "id" = $4;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	args := []any{
 		refreshToken.Token,

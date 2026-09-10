@@ -9,18 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"gofi/internal/config"
 	"gofi/internal/models"
 
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type UserOAuthRepository struct {
-	DB     *sql.DB
-	Config *config.ConfigApp
+	BaseRepository
 }
 
 func (r UserOAuthRepository) GetByUserProvider(userID uuid.UUID, provider string) (*models.UserOAuth, error) {
@@ -35,10 +32,7 @@ func (r UserOAuthRepository) GetByUserProviderExec(exc Executor, userID uuid.UUI
 		LIMIT 1;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -97,10 +91,7 @@ func (r UserOAuthRepository) InsertExec(exc Executor, usersOAuths ...*models.Use
 		RETURNING "id";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -140,10 +131,7 @@ func (r UserOAuthRepository) UpdateExec(exc Executor, id uuid.UUID, userOAuth *m
 		WHERE "id" = $7;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	args := []any{
 		userOAuth.UserID,

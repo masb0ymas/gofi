@@ -14,7 +14,6 @@ import (
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type UserRepository struct {
@@ -45,9 +44,6 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(baseQuery)
 
-	orderBy := `"u"."created_at"`
-	order := "DESC"
-
 	// Whitelist of allowed columns for ORDER BY to prevent SQL injection
 	allowedOrderByColumns := map[string]bool{
 		`"u"."id"`:         true,
@@ -58,19 +54,9 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 		`"u"."email"`:      true,
 	}
 
-	if opts.OrderBy != "" {
-		if !allowedOrderByColumns[opts.OrderBy] {
-			return nil, PaginationMetadata{}, errtrace.New("invalid order by column")
-		}
-		orderBy = opts.OrderBy
-	}
-
-	if opts.Order != "" {
-		upperOrder := strings.ToUpper(opts.Order)
-		if upperOrder != "ASC" && upperOrder != "DESC" {
-			return nil, PaginationMetadata{}, errtrace.New("invalid order")
-		}
-		order = upperOrder
+	orderBy, order, err := buildOrderBy(opts, allowedOrderByColumns, `"u"."created_at"`)
+	if err != nil {
+		return nil, PaginationMetadata{}, err
 	}
 
 	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY %s %s", orderBy, order))
@@ -89,10 +75,7 @@ func (r UserRepository) listExec(exc Executor, opts *QueryOptions) ([]*models.Us
 
 	query := queryBuilder.String()
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -156,10 +139,7 @@ func (r UserRepository) getExec(exc Executor, id uuid.UUID) (*models.User, error
 		WHERE "u"."id" = $1 AND "u"."deleted_at" IS NULL;
 	`, selectFields, selectRoleFields)
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -210,10 +190,7 @@ func (r UserRepository) getByIDExec(exc Executor, id uuid.UUID) (*models.User, e
 					"u"."deleted_at" IS NULL;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -252,10 +229,7 @@ func (r UserRepository) getByEmailExec(exc Executor, email string) (*models.User
 				"u"."deleted_at" IS NULL;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -349,10 +323,7 @@ func (r UserRepository) InsertExec(exc Executor, users ...*models.User) error {
 		RETURNING "id", "created_at", "updated_at";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -400,10 +371,7 @@ func (r UserRepository) UpdateExec(exc Executor, id uuid.UUID, user *models.User
 		WHERE "id" = $9;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	args := []any{
 		user.FirstName,

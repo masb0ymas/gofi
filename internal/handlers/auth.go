@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"gofi/internal/app"
@@ -96,7 +95,7 @@ func (h *authHandler) SignUp(c *fiber.Ctx) error {
 		Link     string
 		AppName  string
 	}{
-		Fullname: strings.Join([]string{dto.FirstName, *dto.LastName}, " "),
+		Fullname: user.DisplayName(),
 		Link:     link,
 		AppName:  h.app.Config.App.Name,
 	}
@@ -188,13 +187,6 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 		CreatedAt: time.Now(),
 	}
 
-	var displayName string
-	if user.LastName != nil && *user.LastName != "" {
-		displayName = strings.Join([]string{user.FirstName, *user.LastName}, " ")
-	} else {
-		displayName = user.FirstName
-	}
-
 	err = lib.WithTransaction(h.app.Repositories.Session.DB, func(tx *sql.Tx) error {
 		err := h.app.Repositories.Session.InsertExec(tx, session)
 		if err != nil {
@@ -215,7 +207,7 @@ func (h *authHandler) SignIn(c *fiber.Ctx) error {
 		Data: fiber.Map{
 			"uid":           user.ID.String(),
 			"email":         user.Email,
-			"display_name":  displayName,
+			"display_name":  user.DisplayName(),
 			"is_admin":      user.RoleID.String() == constant.RoleAdmin,
 			"access_token":  token,
 			"refresh_token": refToken,
@@ -381,19 +373,12 @@ func (h *authHandler) RefreshToken(c *fiber.Ctx) error {
 		})
 	}
 
-	var displayName string
-	if user.LastName != nil && *user.LastName != "" {
-		displayName = strings.Join([]string{user.FirstName, *user.LastName}, " ")
-	} else {
-		displayName = user.FirstName
-	}
-
 	return c.Status(http.StatusOK).JSON(types.ResponseSingleData[any]{
 		Message: "Refresh token successfully",
 		Data: fiber.Map{
 			"uid":           user.ID.String(),
 			"email":         user.Email,
-			"display_name":  displayName,
+			"display_name":  user.DisplayName(),
 			"is_admin":      user.RoleID.String() == constant.RoleAdmin,
 			"access_token":  token,
 			"refresh_token": dto.Token,

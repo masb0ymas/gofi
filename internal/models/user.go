@@ -24,6 +24,13 @@ type User struct {
 	Upload *Upload `json:"upload,omitempty"`
 }
 
+func (entity *User) DisplayName() string {
+	if entity.LastName != nil && *entity.LastName != "" {
+		return entity.FirstName + " " + *entity.LastName
+	}
+	return entity.FirstName
+}
+
 func (entity *User) BeforeCreate() (err error) {
 	hash := argon2.New()
 

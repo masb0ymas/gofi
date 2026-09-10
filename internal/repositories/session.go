@@ -9,45 +9,19 @@ import (
 	"strings"
 	"time"
 
-	"gofi/internal/config"
 	"gofi/internal/models"
 
 	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/maxrichie5/go-sqlfmt/sqlfmt"
 )
 
 type SessionRepository struct {
-	DB     *sql.DB
-	Config *config.ConfigApp
+	BaseRepository
 }
 
 func (r SessionRepository) Count() (int64, error) {
-	return r.countExec(r.DB)
-}
-
-func (r SessionRepository) countExec(exc Executor) (int64, error) {
-	query := `
-		SELECT COUNT(*)
-		FROM "sessions";
-	`
-
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	var count int64
-	err := exc.QueryRowContext(ctx, query).Scan(&count)
-	if err != nil {
-		return 0, errtrace.Errorf("error scanning row: %w", err)
-	}
-
-	return count, nil
+	return r.BaseRepository.countExec(r.DB)
 }
 
 func (r SessionRepository) List(opts *QueryOptions) ([]*models.Session, PaginationMetadata, error) {
@@ -71,19 +45,20 @@ func (r SessionRepository) listExec(exc Executor, opts *QueryOptions) ([]*models
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(baseQuery)
 
-	orderBy := `"s"."created_at"`
-	order := "DESC"
-
-	if opts.OrderBy != "" {
-		orderBy = opts.OrderBy
+	// Whitelist of allowed columns for ORDER BY to prevent SQL injection
+	allowedOrderByColumns := map[string]bool{
+		`"s"."id"`:         true,
+		`"s"."created_at"`: true,
+		`"s"."updated_at"`: true,
+		`"s"."user_id"`:    true,
+		`"s"."expires_at"`: true,
+		`"s"."ip_address"`: true,
+		`"s"."user_agent"`: true,
 	}
 
-	if opts.Order != "" {
-		upperOrder := strings.ToUpper(opts.Order)
-		if upperOrder != "ASC" && upperOrder != "DESC" {
-			return nil, PaginationMetadata{}, errtrace.New("invalid order")
-		}
-		order = upperOrder
+	orderBy, order, err := buildOrderBy(opts, allowedOrderByColumns, `"s"."created_at"`)
+	if err != nil {
+		return nil, PaginationMetadata{}, err
 	}
 
 	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY %s %s", orderBy, order))
@@ -102,10 +77,7 @@ func (r SessionRepository) listExec(exc Executor, opts *QueryOptions) ([]*models
 
 	query := queryBuilder.String()
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -133,7 +105,7 @@ func (r SessionRepository) listExec(exc Executor, opts *QueryOptions) ([]*models
 		sessions = append(sessions, session)
 	}
 
-	count, err := r.countExec(exc)
+	count, err := r.Count()
 	if err != nil {
 		return nil, PaginationMetadata{}, errtrace.Errorf("error counting rows: %w", err)
 	}
@@ -154,10 +126,7 @@ func (r SessionRepository) getByUserIDExec(exc Executor, userID uuid.UUID) (*mod
 		WHERE "user_id" = $1;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -192,10 +161,7 @@ func (r SessionRepository) getByUserTokenExec(exc Executor, userID uuid.UUID, to
 		WHERE "user_id" = $1 AND "token" = $2;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -230,10 +196,7 @@ func (r SessionRepository) getByTokenExec(exc Executor, token string) (*models.S
 		WHERE "s"."token" = $1 AND "s"."expires_at" > now();
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -293,10 +256,7 @@ func (r SessionRepository) InsertExec(exc Executor, session ...*models.Session) 
 		RETURNING "id", "created_at", "updated_at";
 	`, strings.Join(columns[:], ", "), strings.Join(valueStrings, ", "))
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -336,10 +296,7 @@ func (r SessionRepository) updateExec(exc Executor, id uuid.UUID, session *model
 		WHERE "id" = $5;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	args := []any{
 		session.Token,
@@ -379,10 +336,7 @@ func (r SessionRepository) deleteExec(exc Executor, userID uuid.UUID, token stri
 		WHERE "user_id" = $1 AND "token" = $2;
 	`
 
-	if r.Config != nil && r.Config.Debug {
-		fmt.Println()
-		sqlfmt.PrettyPrint(query)
-	}
+	r.debugQuery(query)
 
 	args := []any{userID, token}
 

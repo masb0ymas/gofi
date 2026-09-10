@@ -3,6 +3,9 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"strings"
+
+	"braces.dev/errtrace"
 )
 
 type Executor interface {
@@ -24,4 +27,29 @@ type QueryOptions struct {
 
 type PaginationMetadata struct {
 	Total int64 `json:"total"`
+}
+
+// buildOrderBy resolves the ORDER BY column and direction from user-supplied
+// options. OrderBy must appear in allowedColumns (quoted, table-qualified as
+// written in the query); Order is case-insensitively matched to ASC/DESC.
+func buildOrderBy(opts *QueryOptions, allowedColumns map[string]bool, defaultOrderBy string) (string, string, error) {
+	orderBy := defaultOrderBy
+	order := "DESC"
+
+	if opts.OrderBy != "" {
+		if !allowedColumns[opts.OrderBy] {
+			return "", "", errtrace.New("invalid order by column")
+		}
+		orderBy = opts.OrderBy
+	}
+
+	if opts.Order != "" {
+		upperOrder := strings.ToUpper(opts.Order)
+		if upperOrder != "ASC" && upperOrder != "DESC" {
+			return "", "", errtrace.New("invalid order")
+		}
+		order = upperOrder
+	}
+
+	return orderBy, order, nil
 }
