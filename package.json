@@ -1,0 +1,11 @@
+{
+  "name": "gofi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Holds the release version and the release-it commands; the project itself is Go.",
+  "scripts": {
+    "release-it": "npx --yes -p release-it@21.1.0 -p @release-it/conventional-changelog@12.0.2 release-it",
+    "release:prepare": "npm run release-it -- --ci --no-git.tag --no-git.push --no-github.release",
+    "release:publish": "npm run release-it -- --ci --no-increment --no-git.commit --no-git.push --github.release"
+  }
+}

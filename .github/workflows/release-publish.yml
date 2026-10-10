@@ -1,62 +1,51 @@
-# Builds the container image for a tag, pushes it to GHCR and makes the draft
-# GitHub release public. Called by release.yml; run it by hand to publish an
-# existing tag again.
-name: Release / publish
+# Publishes a release when a release/* PR merges into main.
+#
+# release-it tags the merge commit and creates the GitHub release — the release
+# API creates the remote tag server-side, so no git push is needed (that also
+# avoids the detached-HEAD push problem in Actions checkouts).
+#
+# A tag created via the API does NOT trigger release.yml's `push: tags` event
+# (GITHUB_TOKEN never cascades), so the image build is dispatched explicitly.
+
+name: Release Publish
 
 on:
-  workflow_call:
-    inputs:
-      tag:
-        type: string
-        required: true
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing tag to publish, e.g. v1.2.3
-        type: string
-        required: true
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write # tag + GitHub release
+  actions: write # gh workflow run release.yml
 
 jobs:
   publish:
+    if: github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.tag }}
+          # main after the merge — the commit the tag will point at.
+          ref: main
+          fetch-depth: 0
 
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          node-version: 24
 
-      # v1.2.3 becomes the image tags 1.2.3, 1.2 and latest.
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ inputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }}
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Tag and create GitHub release
+        run: npm run release:publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Only after the image is pushed, so a public release always has one.
-      - name: publish the GitHub release
+      - name: Dispatch Docker image build
+        run: gh workflow run release.yml --ref "v$(node -p "require('./package.json').version")"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag }}
-        run: gh release edit "$TAG" --draft=false

@@ -68,13 +68,17 @@ A successful sign-in sets the session cookie and returns `access_token`,
 `refresh_token`, `expires_at` and `expires_in` next to `user` and `session`.
 The API accepts either the cookie or `Authorization: Bearer <access_token>`.
 
-- The access token lasts 15 minutes; renew it with
-  `POST /v1/auth/token/refresh` and `{"refresh_token": "..."}`.
-- Signing out revokes the tokens of that session.
-- Signing in again while a session is still active returns no new tokens; use
-  the refresh endpoint.
-- A Google sign-in started with `redirect_to` answers with a redirect, which
-  carries the cookie but no tokens.
+- The access token lasts 15 minutes and the refresh token 24 hours; renew
+  them with `POST /v1/auth/token/refresh` and `{"refresh_token": "..."}`.
+- `POST /v1/auth/token` returns a new pair for the caller's session, from the
+  cookie or a bearer token. Use it when a session has no tokens: after a
+  Google sign-in started with `redirect_to`, which answers with a redirect, or
+  once the refresh token has expired while the 7-day session is still alive.
+- Signing out revokes the tokens of that session, and an access token stops
+  working when its session expires.
+- A state-changing request that a browser sends from another origin is
+  refused with 403 unless the origin is in `CORS_ALLOWED_ORIGINS`. Clients
+  that are not browsers are unaffected.
 
 ## Docker
 
@@ -92,19 +96,23 @@ docker run --env-file .env --entrypoint /app/migrate gofi up
 ## Release
 
 Releases are cut from `main` with [release-it](https://github.com/release-it/release-it),
-run by GitHub Actions. Start the **Release** workflow from the Actions tab:
+run by GitHub Actions, in three steps:
 
-1. `release.yml` is the entry point. It takes the bump (`auto` derives it from
-   the conventional commits) and an optional dry run.
-2. `release-prepare.yml` runs the tests, then release-it: it updates
-   `CHANGELOG.md`, commits `chore(release): vX.Y.Z`, tags, pushes and opens a
-   draft GitHub release.
-3. `release-publish.yml` builds the image for that tag, pushes it to
-   `ghcr.io/masb0ymas/gofi` (`X.Y.Z`, `X.Y` and `latest`) and makes the release
-   public. Run it by hand with a tag to publish that tag again.
+1. **Release Prepare** (`release-prepare.yml`), started by hand from the
+   Actions tab. It runs the checks below, then release-it bumps the version in
+   `package.json` and updates `CHANGELOG.md`, and the workflow opens a
+   `chore: release vX.Y.Z` pull request from a `release/vX.Y.Z` branch.
+   `increment: auto` derives the bump from the conventional commits.
+2. **Release Publish** (`release-publish.yml`) runs when that pull request is
+   merged into `main`. release-it tags the merge commit, creates the GitHub
+   release and the workflow starts the image build.
+3. **Release** (`release.yml`) builds the image for the tag and pushes it to
+   `ghcr.io/masb0ymas/gofi` as `vX.Y.Z`, `vX.Y` and `latest`. Run it by hand to
+   publish an image of any ref under its short commit SHA.
 
-The release commit is pushed straight to `main`, so a rule that requires pull
-requests on `main` has to let GitHub Actions bypass it.
+`package.json` exists only to hold the version and the release-it commands;
+it has no dependencies. The repository setting "Allow GitHub Actions to create
+and approve pull requests" must be on for step 1.
 
 ## Checks
 
@@ -113,4 +121,16 @@ go test ./...
 go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 ```
 
-CI runs both on every push and pull request.
+`cmd/api` has an integration test that boots the API against PostgreSQL 18:
+migrations up and down, the seeders, the users mirror, sign-in, tokens and
+the role check. It is skipped unless `TEST_DB_DSN` points at a database it may
+wipe:
+
+```sh
+docker run -d --rm --name gofi-test-pg -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=gofi_test -p 55432:5432 postgres:18
+TEST_DB_DSN='postgres://postgres:postgres@localhost:55432/gofi_test?sslmode=disable' go test ./cmd/api
+```
+
+The release workflow runs all of it before it tags anything; there is no
+workflow that runs on every push.

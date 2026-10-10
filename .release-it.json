@@ -1,20 +1,28 @@
 {
-  "$schema": "https://unpkg.com/release-it@21/schema/release-it.json",
+  "$schema": "https://unpkg.com/release-it@21.1.0/schema/release-it.json",
   "git": {
-    "requireBranch": "main",
-    "commitMessage": "chore(release): v${version}",
-    "tagName": "v${version}"
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "Release v${version}",
+    "requireCleanWorkingDir": false,
+    "requireBranch": false,
+    "requireUpstream": false,
+    "requireCommits": false
   },
-  "npm": false,
+  "npm": {
+    "publish": false
+  },
   "github": {
     "release": true,
-    "releaseName": "v${version}",
-    "draft": true
+    "releaseName": "v${version}"
   },
   "plugins": {
     "@release-it/conventional-changelog": {
-      "preset": { "name": "conventionalcommits" },
-      "infile": "CHANGELOG.md"
+      "preset": {
+        "name": "conventionalcommits"
+      },
+      "infile": "CHANGELOG.md",
+      "header": "# Changelog\n\nAll notable changes to this project are documented in this file. Versions follow the git tags (`v*`); Docker images are published to ghcr.io with the same version.\n"
     }
   }
 }
