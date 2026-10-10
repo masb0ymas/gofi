@@ -18,9 +18,13 @@ func TotalMeta(total int) Metadata {
 	return Metadata{"total": total}
 }
 
-// Response renders the single-resource envelope {data, metadata, message?}.
+// Response renders the envelope {data, metadata?, message?}; nil metadata
+// is left out.
 func Response(c fiber.Ctx, status int, data any, metadata Metadata, message string) error {
-	body := fiber.Map{"data": data, "metadata": metadata}
+	body := fiber.Map{"data": data}
+	if metadata != nil {
+		body["metadata"] = metadata
+	}
 	if message != "" {
 		body["message"] = message
 	}
@@ -29,12 +33,12 @@ func Response(c fiber.Ctx, status int, data any, metadata Metadata, message stri
 
 // OK renders a 200 single-resource envelope without a message.
 func OK(c fiber.Ctx, data any) error {
-	return Response(c, fiber.StatusOK, data, Metadata{}, "")
+	return Response(c, fiber.StatusOK, data, nil, "")
 }
 
 // Created renders a 201 single-resource envelope with a message.
 func Created(c fiber.Ctx, data any, message string) error {
-	return Response(c, fiber.StatusCreated, data, Metadata{}, message)
+	return Response(c, fiber.StatusCreated, data, nil, message)
 }
 
 // List renders the collection envelope {data, metadata}.
@@ -44,10 +48,10 @@ func List(c fiber.Ctx, data any, meta Metadata) error {
 
 // Get renders the single-resource envelope {data}.
 func Get(c fiber.Ctx, data any) error {
-	return Response(c, fiber.StatusOK, data, Metadata{}, "data has been retrieved")
+	return Response(c, fiber.StatusOK, data, nil, "data has been retrieved")
 }
 
 // Message renders the bare {message} envelope (accepted for updates that return no payload).
 func Message(c fiber.Ctx, status int, message string) error {
-	return Response(c, status, nil, Metadata{}, message)
+	return Response(c, status, nil, nil, message)
 }
