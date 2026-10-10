@@ -31,6 +31,7 @@ run:
 		--db-max-idle-time=$(DB_MAX_IDLE_TIME) \
 		--migrate-on-boot=$(MIGRATE_ON_BOOT) \
 		--seed-on-boot=$(SEED_ON_BOOT) \
+		--super-user=$(SUPER_USER) \
 		--auth-base-url=$(AUTH_BASE_URL) \
 		--email-from=$(FROM_ADDRESS) \
 		--resend-api-key=$(RESEND_API_KEY) \

@@ -40,7 +40,8 @@ type ConfigApp struct {
 	Secret             string
 	MigrateOnBoot      bool
 	SeedOnBoot         bool
-	SeedPassword       string
+	SuperUserEmail     string
+	SuperUserPassword  string
 	CORSAllowedOrigins string
 	RateLimitExemptIPs string
 	TrustedProxies     string

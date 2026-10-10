@@ -16,21 +16,10 @@ import (
 //go:embed data/*.json
 var data embed.FS
 
-// MinPasswordLen is the shortest default password accepted for seeded accounts.
-const MinPasswordLen = 12
-
-// ValidatePassword refuses the placeholder from older .env.example files and
-// anything short, because the seeded admin account gets this password.
-func ValidatePassword(pwd string) error {
-	if len(pwd) < MinPasswordLen || pwd == "defaultPassword123" {
-		return fmt.Errorf("must be a non-default password of at least %d characters when seeding", MinPasswordLen)
-	}
-	return nil
-}
-
-// All returns every seeder in the order of the old TypeORM seeder migrations:
-// referenced rows first.
-func All(db *sql.DB, defaultPassword string) []Seeder {
+// All returns every seeder that needs only the database, in the order of the
+// old TypeORM seeder migrations: referenced rows first. The super user needs a
+// running Authula instance, so the API appends SuperUserSeeder itself.
+func All(db *sql.DB) []Seeder {
 	return []Seeder{
 		CategorySeeder{DB: db},
 	}

@@ -44,7 +44,8 @@ func main() {
 		}
 		defer seedDB.Close()
 
-		execSeeders(seeders.All(seedDB, cfg.appPwd)...)
+		// The super user is seeded by the API on boot: it needs Authula.
+		execSeeders(seeders.All(seedDB)...)
 	}
 
 	fmt.Println("Completed")

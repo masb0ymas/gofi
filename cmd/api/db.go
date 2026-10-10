@@ -81,9 +81,10 @@ func migrateUp(cfg *config.ConfigDB, logger *slog.Logger) error {
 	return nil
 }
 
-// seedAll runs every seeder on the application pool. Seeders are idempotent.
-func seedAll(db *sql.DB, defaultPassword string, logger *slog.Logger) error {
-	for _, s := range seeders.All(db, defaultPassword) {
+// seedAll runs every seeder on the application pool, the super user last.
+// Seeders are idempotent.
+func seedAll(db *sql.DB, superUser seeders.SuperUserSeeder, logger *slog.Logger) error {
+	for _, s := range append(seeders.All(db), superUser) {
 		logger.Info("running seeder", "name", s.Name())
 		if err := s.Seed(); err != nil {
 			return fmt.Errorf("%s seeder: %w", s.Name(), err)

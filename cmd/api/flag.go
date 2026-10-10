@@ -92,7 +92,7 @@ func parseFlag(cfg *config.Config) {
 	// Boot
 	flag.BoolVar(&cfg.App.MigrateOnBoot, "migrate-on-boot", envBool("MIGRATE_ON_BOOT", false), "Apply embedded migrations before serving")
 	flag.BoolVar(&cfg.App.SeedOnBoot, "seed-on-boot", envBool("SEED_ON_BOOT", false), "Run the idempotent seeders before serving")
-	flag.StringVar(&cfg.App.SeedPassword, "app-pwd", envString("APP_DEFAULT_PASS", ""), "Default password for seeded users (required with seed-on-boot)")
+	superUser := flag.String("super-user", envString("SUPER_USER", ""), "Super user seeded on boot, as email:password (required with seed-on-boot)")
 
 	// Auth (Authula). The env names match the ones Authula itself reads.
 	flag.StringVar(&cfg.Auth.BaseURL, "auth-base-url", envString("AUTH_BASE_URL", ""), "Public URL of this API, used in auth email links and OAuth callbacks (default http://localhost:<port>)")
@@ -105,6 +105,9 @@ func parseFlag(cfg *config.Config) {
 	flag.StringVar(&cfg.Sentry.Dsn, "sentry-dsn", envString("SENTRY_DSN", ""), "Sentry DSN")
 
 	flag.Parse()
+
+	// Cut at the first colon: an email has none, a password may.
+	cfg.App.SuperUserEmail, cfg.App.SuperUserPassword, _ = strings.Cut(*superUser, ":")
 
 	if cfg.Auth.BaseURL == "" {
 		cfg.Auth.BaseURL = fmt.Sprintf("http://localhost:%d", cfg.App.Port)
@@ -132,8 +135,8 @@ func validateFlag(cfg *config.Config) {
 	}
 
 	if cfg.App.SeedOnBoot {
-		if err := seeders.ValidatePassword(cfg.App.SeedPassword); err != nil {
-			log.Fatalf("flag app-pwd %v", err)
+		if err := seeders.ValidateSuperUser(cfg.App.SuperUserEmail, cfg.App.SuperUserPassword); err != nil {
+			log.Fatalf("flag super-user %v", err)
 		}
 	}
 

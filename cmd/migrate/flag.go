@@ -19,16 +19,14 @@ const (
 )
 
 type config struct {
-	mode   string
-	dbDSN  string
-	seed   string
-	appPwd string
+	mode  string
+	dbDSN string
+	seed  string
 }
 
 func parseFlag(cfg *config) {
 	flag.StringVar(&cfg.dbDSN, "db-dsn", "", "PostgreSQL DSN")
 	flag.StringVar(&cfg.seed, "seed", "", "seed")
-	flag.StringVar(&cfg.appPwd, "app-pwd", "", "app password")
 
 	flag.Parse()
 	validateFlag(cfg)

@@ -9,6 +9,7 @@ import (
 	"gofi/internal/app"
 	"gofi/internal/config"
 	"gofi/internal/repositories"
+	"gofi/internal/seeders"
 )
 
 func main() {
@@ -39,21 +40,32 @@ func run() error {
 	}
 	defer db.Close()
 
+	repos := repositories.New(db, cfg.App.Debug)
+	mirror := mirrorUser(&repos.User)
+
+	// Creating the instance runs Authula's own migrations.
+	auth := newAuth(cfg, mirror, logger)
+	defer auth.CloseSystems()
+	defer auth.ClosePlugins()
+
+	// Seeding follows Authula because the super user is created through it.
 	if cfg.App.SeedOnBoot {
-		if err := seedAll(db, cfg.App.SeedPassword, logger); err != nil {
+		superUser := seeders.SuperUserSeeder{
+			DB:       db,
+			Auth:     auth.CoreServices(),
+			Mirror:   mirror,
+			Email:    cfg.App.SuperUserEmail,
+			Password: cfg.App.SuperUserPassword,
+		}
+		if err := seedAll(db, superUser, logger); err != nil {
 			return err
 		}
 	}
 
-	// Creating the instance runs Authula's own migrations.
-	auth := newAuth(cfg, logger)
-	defer auth.CloseSystems()
-	defer auth.ClosePlugins()
-
 	return serve(&app.Application{
 		Config:       cfg,
 		Logger:       logger,
-		Repositories: repositories.New(db, cfg.App.Debug),
+		Repositories: repos,
 		Auth:         auth,
 	})
 }

@@ -1,8 +1,12 @@
 package main
 
 import (
+	"context"
 	"log/slog"
+	"net/url"
 	"time"
+
+	"github.com/google/uuid"
 
 	authula "github.com/Authula/authula"
 	authulaconfig "github.com/Authula/authula/config"
@@ -18,6 +22,8 @@ import (
 	sessionplugin "github.com/Authula/authula/plugins/session"
 
 	"gofi/internal/config"
+	"gofi/internal/models"
+	"gofi/internal/repositories"
 )
 
 // authBasePath is where the Authula handler is mounted on the Fiber app;
@@ -58,11 +64,56 @@ var authRouteMappings = []authulamodels.RouteMapping{
 	},
 }
 
+// authSchema is the PostgreSQL schema holding Authula's tables. It keeps them
+// apart from the application's own, which include a "users" mirror of the
+// same name (see migration 000002, which also creates the schema).
+const authSchema = "authula"
+
+// authDSN points Authula's connections at authSchema. Its driver (lib/pq)
+// passes search_path to the server as a session default.
+func authDSN(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil || u.Scheme == "" {
+		// Not a URL, so a key/value DSN.
+		return dsn + " search_path=" + authSchema
+	}
+	q := u.Query()
+	q.Set("search_path", authSchema)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// mirrorUser returns the function that copies an Authula user into the public
+// users table. It is an Authula service hook, which carries no context.
+func mirrorUser(repo *repositories.UserRepository) func(*authulamodels.User) error {
+	return func(u *authulamodels.User) error {
+		id, err := uuid.Parse(u.ID)
+		if err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		return repo.Upsert(ctx, models.User{
+			Base:  models.Base{ID: id},
+			Name:  u.Name,
+			Email: u.Email,
+			Image: u.Image,
+		})
+	}
+}
+
 // newAuth builds the embedded Authula instance: email & password, Google
 // OAuth2 and email magic links on top of cookie sessions, with emails sent
 // through Resend. Authula migrates its own tables (users, accounts, sessions,
-// verifications) into the app database when it starts.
-func newAuth(cfg config.Config, logger *slog.Logger) *authula.Auth {
+// verifications) into authSchema of the app database when it starts, and
+// mirror runs after every user it creates or updates.
+func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *slog.Logger) *authula.Auth {
+	userHooks := &authulamodels.ServiceHooks[authulamodels.User]{}
+	userHooks.RegisterAfterCreate(mirror)
+	userHooks.RegisterAfterUpdate(mirror)
+
 	origins := splitCSV(cfg.App.CORSAllowedOrigins)
 
 	logLevel := "info"
@@ -77,7 +128,7 @@ func newAuth(cfg config.Config, logger *slog.Logger) *authula.Auth {
 		authulaconfig.WithSecret(cfg.App.Secret),
 		authulaconfig.WithDatabase(authulamodels.DatabaseConfig{
 			Provider:     "postgres",
-			URL:          cfg.DB.DSN,
+			URL:          authDSN(cfg.DB.DSN),
 			MaxOpenConns: cfg.DB.MaxOpenConns,
 			MaxIdleConns: cfg.DB.MaxIdleConns,
 		}),
@@ -104,6 +155,7 @@ func newAuth(cfg config.Config, logger *slog.Logger) *authula.Auth {
 			},
 		}),
 		authulaconfig.WithRouteMappings(authRouteMappings),
+		authulaconfig.WithCoreServiceHooks(&authulamodels.CoreServiceHooksConfig{Users: userHooks}),
 	)
 
 	googleEnabled := cfg.Auth.GoogleClientID != ""
