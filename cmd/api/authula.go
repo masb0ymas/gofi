@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +19,8 @@ import (
 	emailpasswordplugin "github.com/Authula/authula/plugins/email-password"
 	emailpasswordplugintypes "github.com/Authula/authula/plugins/email-password/types"
 	emailplugintypes "github.com/Authula/authula/plugins/email/types"
+	jwtplugin "github.com/Authula/authula/plugins/jwt"
+	jwtplugintypes "github.com/Authula/authula/plugins/jwt/types"
 	magiclinkplugin "github.com/Authula/authula/plugins/magic-link"
 	magiclinkplugintypes "github.com/Authula/authula/plugins/magic-link/types"
 	oauth2plugin "github.com/Authula/authula/plugins/oauth2"
@@ -104,6 +110,62 @@ func mirrorUser(repo *repositories.UserRepository) func(*authulamodels.User) err
 	}
 }
 
+// tokenLifetime reads the issued-at and expiry times (Unix seconds) from a
+// JWT's payload. The token was minted by this process, so it is not verified.
+func tokenLifetime(token string) (iat, exp int64, err error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return 0, 0, errors.New("malformed access token")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	var claims struct {
+		Iat int64 `json:"iat"`
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return 0, 0, err
+	}
+	return claims.Iat, claims.Exp, nil
+}
+
+// addTokensToResponse adds the token pair the jwt plugin minted for a
+// successful sign-in to the JSON body the sign-in handler already wrote,
+// with the access token's expiry. A sign-in that answers with a redirect
+// (Google with redirect_to) has no JSON body and is left alone.
+func addTokensToResponse(reqCtx *authulamodels.RequestContext) error {
+	access, _ := reqCtx.Values[jwtplugintypes.JWTTokenTypeAccess.String()].(string)
+	if access == "" {
+		return nil
+	}
+
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(reqCtx.ResponseBody, &body); err != nil || body == nil {
+		return nil
+	}
+
+	iat, exp, err := tokenLifetime(access)
+	if err != nil {
+		return err
+	}
+
+	for key, value := range map[string]any{
+		"access_token":  access,
+		"refresh_token": reqCtx.Values[jwtplugintypes.JWTTokenTypeRefresh.String()],
+		"expires_at":    time.Unix(exp, 0).UTC(),
+		"expires_in":    exp - iat,
+	} {
+		if body[key], err = json.Marshal(value); err != nil {
+			return err
+		}
+	}
+
+	reqCtx.ResponseBody, err = json.Marshal(body)
+	return err
+}
+
 // newAuth builds the embedded Authula instance: email & password, Google
 // OAuth2 and email magic links on top of cookie sessions, with emails sent
 // through Resend. Authula migrates its own tables (users, accounts, sessions,
@@ -163,7 +225,7 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 		logger.Warn("google sign-in disabled: google-client-id is not set")
 	}
 
-	return authula.New(&authula.AuthConfig{
+	auth := authula.New(&authula.AuthConfig{
 		Config: authConfig,
 		Plugins: []authulamodels.Plugin{
 			// Registered first: the email-based plugins look up its mailer.
@@ -183,6 +245,14 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 				SendEmailOnSignUp:        true,
 				PasswordResetExpiresIn:   time.Hour,
 			}),
+			// Mints an access and refresh token on every successful sign-in and
+			// serves POST /token/refresh; the refresh token lives as long as the
+			// session it belongs to.
+			jwtplugin.New(jwtplugintypes.JWTPluginConfig{
+				Enabled:          true,
+				ExpiresIn:        15 * time.Minute,
+				RefreshExpiresIn: 7 * 24 * time.Hour,
+			}),
 			magiclinkplugin.New(magiclinkplugintypes.MagicLinkPluginConfig{
 				Enabled:   true,
 				ExpiresIn: 15 * time.Minute,
@@ -200,4 +270,13 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 			}),
 		},
 	})
+
+	// Order 20 runs after the jwt plugin's own minting hook (15).
+	auth.RegisterHook(authulamodels.Hook{
+		Stage:   authulamodels.HookAfter,
+		Handler: addTokensToResponse,
+		Order:   20,
+	})
+
+	return auth
 }
