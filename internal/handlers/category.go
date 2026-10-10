@@ -8,10 +8,15 @@ import (
 	"gofi/internal/dtos"
 	"gofi/internal/lib"
 	"gofi/internal/models"
+	"gofi/internal/repositories"
 )
 
 type categoryHandler struct {
 	app *app.Application
+}
+
+func (h *categoryHandler) repo() *repositories.CategoryRepository {
+	return &h.app.Repositories.Category
 }
 
 func (h *categoryHandler) List(c fiber.Ctx) error {
@@ -23,12 +28,11 @@ func (h *categoryHandler) List(c fiber.Ctx) error {
 
 	params := listParams(q)
 
-	repo := &h.app.Repositories.Category
-	categories, err := repo.List(c.Context(), params)
+	categories, err := h.repo().List(c.Context(), params)
 	if err != nil {
 		return err
 	}
-	total, err := repo.Count(c.Context(), params)
+	total, err := h.repo().Count(c.Context(), params)
 	if err != nil {
 		return err
 	}
@@ -42,7 +46,7 @@ func (h *categoryHandler) Get(c fiber.Ctx) error {
 		return err
 	}
 
-	category, err := h.app.Repositories.Category.Get(c.Context(), id)
+	category, err := h.repo().Get(c.Context(), id)
 	if err != nil {
 		return err
 	}
@@ -61,13 +65,12 @@ func (h *categoryHandler) Create(c fiber.Ctx) error {
 		return err
 	}
 
-	repo := &h.app.Repositories.Category
-	if err := repo.Insert(c.Context(), category); err != nil {
+	if err := h.repo().Insert(c.Context(), category); err != nil {
 		return err
 	}
 
 	// Re-read so the response carries the DB-set timestamps.
-	category, err = repo.Get(c.Context(), category.ID)
+	category, err = h.repo().Get(c.Context(), category.ID)
 	if err != nil {
 		return err
 	}
@@ -88,12 +91,11 @@ func (h *categoryHandler) Update(c fiber.Ctx) error {
 	category := models.Category{Name: body.Name}
 	category.ID = id
 
-	repo := &h.app.Repositories.Category
-	if err := repo.Update(c.Context(), category); err != nil {
+	if err := h.repo().Update(c.Context(), category); err != nil {
 		return err
 	}
 
-	category, err = repo.Get(c.Context(), id)
+	category, err = h.repo().Get(c.Context(), id)
 	if err != nil {
 		return err
 	}
@@ -101,13 +103,13 @@ func (h *categoryHandler) Update(c fiber.Ctx) error {
 }
 
 func (h *categoryHandler) Delete(c fiber.Ctx) error {
-	return mutateByID(c, "category", h.app.Repositories.Category.Delete, "category deleted")
+	return mutateByID(c, "category", h.repo().Delete, "category deleted")
 }
 
 func (h *categoryHandler) Restore(c fiber.Ctx) error {
-	return mutateByID(c, "category", h.app.Repositories.Category.Restore, "category restored")
+	return mutateByID(c, "category", h.repo().Restore, "category restored")
 }
 
 func (h *categoryHandler) DeletePermanently(c fiber.Ctx) error {
-	return mutateByID(c, "category", h.app.Repositories.Category.ForceDelete, "category permanently deleted")
+	return mutateByID(c, "category", h.repo().ForceDelete, "category permanently deleted")
 }
