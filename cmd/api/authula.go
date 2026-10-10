@@ -15,6 +15,7 @@ import (
 	authula "github.com/Authula/authula"
 	authulaconfig "github.com/Authula/authula/config"
 	authulamodels "github.com/Authula/authula/models"
+	bearerplugin "github.com/Authula/authula/plugins/bearer"
 	emailplugin "github.com/Authula/authula/plugins/email"
 	emailpasswordplugin "github.com/Authula/authula/plugins/email-password"
 	emailpasswordplugintypes "github.com/Authula/authula/plugins/email-password/types"
@@ -39,15 +40,18 @@ const authBasePath = "/v1/auth"
 var (
 	sessionAuth         = sessionplugin.HookIDSessionAuth.String()
 	sessionAuthOptional = sessionplugin.HookIDSessionAuthOptional.String()
+	bearerAuthOptional  = bearerplugin.HookIDBearerAuthOptional.String()
 )
 
-// authRouteMappings attaches session capabilities to Authula's routes. Paths
+// authRouteMappings attaches auth capabilities to Authula's routes. Paths
 // are relative to authBasePath. Sign-in style routes take an optional session
-// so an already signed-in user is recognised; account routes require one.
+// so an already signed-in user is recognised; account routes require either
+// a bearer access token or a session: the optional bearer check runs first
+// and the session check stands down once it has identified the caller.
 var authRouteMappings = []authulamodels.RouteMapping{
 	{
 		Paths:   []string{"GET:/me", "POST:/sign-out"},
-		Plugins: []string{sessionAuth},
+		Plugins: []string{bearerAuthOptional, sessionAuth},
 	},
 	{
 		Paths: []string{
@@ -66,7 +70,7 @@ var authRouteMappings = []authulamodels.RouteMapping{
 			"POST:/email-password/send-email-verification",
 			"POST:/email-password/request-email-change",
 		},
-		Plugins: []string{sessionAuth},
+		Plugins: []string{bearerAuthOptional, sessionAuth},
 	},
 }
 
@@ -235,6 +239,18 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 				FromAddress: cfg.Auth.EmailFrom,
 				Resend:      &emailplugintypes.ResendConfig{ApiKey: cfg.Auth.ResendAPIKey},
 			}),
+			// Mints an access and refresh token on every successful sign-in and
+			// serves POST /token/refresh; the refresh token lives as long as the
+			// session it belongs to.
+			jwtplugin.New(jwtplugintypes.JWTPluginConfig{
+				Enabled:          true,
+				ExpiresIn:        15 * time.Minute,
+				RefreshExpiresIn: 7 * 24 * time.Hour,
+			}),
+			// Accepts that access token as "Authorization: Bearer". Registered
+			// before the session plugin: hooks of equal order run in plugin
+			// order, and the bearer check has to precede the session one.
+			bearerplugin.New(bearerplugin.BearerPluginConfig{Enabled: true}),
 			sessionplugin.New(sessionplugin.SessionPluginConfig{Enabled: true}),
 			emailpasswordplugin.New(emailpasswordplugintypes.EmailPasswordPluginConfig{
 				Enabled:                  true,
@@ -244,14 +260,6 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 				AutoSignIn:               true,
 				SendEmailOnSignUp:        true,
 				PasswordResetExpiresIn:   time.Hour,
-			}),
-			// Mints an access and refresh token on every successful sign-in and
-			// serves POST /token/refresh; the refresh token lives as long as the
-			// session it belongs to.
-			jwtplugin.New(jwtplugintypes.JWTPluginConfig{
-				Enabled:          true,
-				ExpiresIn:        15 * time.Minute,
-				RefreshExpiresIn: 7 * 24 * time.Hour,
 			}),
 			magiclinkplugin.New(magiclinkplugintypes.MagicLinkPluginConfig{
 				Enabled:   true,
