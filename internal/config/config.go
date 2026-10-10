@@ -2,25 +2,48 @@ package config
 
 import "time"
 
+// Accepted App.Env values. Only EnvDevelopment enables development-only
+// behaviour: the loopback rate-limit exemption and session cookies without
+// Secure. The default is EnvProduction, so forgetting ENV fails safe.
+const (
+	EnvDevelopment = "development"
+	EnvStaging     = "staging"
+	EnvProduction  = "production"
+)
+
+// SessionCookieName is the cookie Authula issues on sign-in; the API's
+// authorization middleware reads the same cookie.
+const SessionCookieName = "authula.session_token"
+
 type Config struct {
 	App    ConfigApp
 	DB     ConfigDB
-	Redis  ConfigRedis
-	Resend ConfigResend
-	Google ConfigGoogle
-	S3     ConfigS3
+	Auth   ConfigAuth
+	Sentry ConfigSentry
+}
+
+// ConfigAuth configures the embedded Authula server.
+type ConfigAuth struct {
+	BaseURL            string
+	EmailFrom          string
+	ResendAPIKey       string
+	GoogleClientID     string
+	GoogleClientSecret string
 }
 
 type ConfigApp struct {
-	Env       string
-	Debug     bool
-	Port      int
-	MachineID uint16
-	Name      string
-	Secret    string
-	JWTSecret string
-	ClientURL string
-	ServerURL string
+	Env                string
+	Debug              bool
+	Port               int
+	Name               string
+	Secret             string
+	MigrateOnBoot      bool
+	SeedOnBoot         bool
+	SuperUserEmail     string
+	SuperUserPassword  string
+	CORSAllowedOrigins string
+	RateLimitExemptIPs string
+	TrustedProxies     string
 }
 
 type ConfigDB struct {
@@ -30,28 +53,6 @@ type ConfigDB struct {
 	MaxIdleTime  time.Duration
 }
 
-type ConfigRedis struct {
-	Addr     string
-	Password string
-	DB       int
-}
-
-type ConfigResend struct {
-	ApiKey       string
-	FromEmail    string
-	DebugToEmail string
-}
-
-type ConfigGoogle struct {
-	ClientID     string
-	ClientSecret string
-	RedirectURL  string
-}
-
-type ConfigS3 struct {
-	ClientID     string
-	ClientSecret string
-	Region       string
-	Endpoint     string
-	Token        string
+type ConfigSentry struct {
+	Dsn string
 }

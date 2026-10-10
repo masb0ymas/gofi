@@ -1,2 +1,11 @@
-temp/
-bin/
+# Everything the image build does not read. .env holds secrets and must never
+# reach a build context.
+.git
+.github
+.env
+.claude
+.omc
+graft
+docs
+bin
+*.md

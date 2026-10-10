@@ -1,4 +1,7 @@
--include .envrc
+-include .env
+# Every setting reaches the binaries through the environment, never as an
+# argument: process arguments are visible to other users of the machine.
+export
 
 # ==================================================================================== #
 # HELPERS
@@ -14,37 +17,10 @@ help:
 # APPLICATION
 # ==================================================================================== #
 
-## run: run the application
+## run: run the application (configuration comes from .env)
 .PHONY: run
 run:
-	go run ./cmd/api \
-		--machine-id=$(MACHINE_ID) \
-		--debug=$(DEBUG) \
-		--env=$(ENV) \
-		--port=$(PORT) \
-		--app-name=$(APP_NAME) \
-		--app-secret=$(APP_SECRET) \
-		--jwt-secret=$(JWT_SECRET) \
-		--client-url=$(CLIENT_URL) \
-		--server-url=$(SERVER_URL) \
-		--db-dsn=$(DB_DSN) \
-		--db-max-open-conns=$(DB_MAX_OPEN_CONNS) \
-		--db-max-idle-conns=$(DB_MAX_IDLE_CONNS) \
-		--db-max-idle-time=$(DB_MAX_IDLE_TIME) \
-		--redis-addr=$(REDIS_ADDR) \
-		--redis-password=$(REDIS_PASSWORD) \
-		--redis-db=$(REDIS_DB) \
-		--resend-api-key=$(RESEND_API_KEY) \
-		--resend-from-email=$(RESEND_FROM_EMAIL) \
-		--resend-debug-to-email=$(RESEND_DEBUG_TO_EMAIL) \
-		--google-client-id=$(GOOGLE_CLIENT_ID) \
-		--google-client-secret=$(GOOGLE_CLIENT_SECRET) \
-		--google-redirect-url=$(GOOGLE_REDIRECT_URL) \
-		--s3-client-id=$(S3_CLIENT_ID) \
-		--s3-client-secret=$(S3_CLIENT_SECRET) \
-		--s3-region=$(S3_REGION) \
-		--s3-endpoint=$(S3_ENDPOINT) \
-		--s3-token=$(S3_TOKEN)
+	go run ./cmd/api
 
 # ==================================================================================== #
 # MIGRATIONS
@@ -64,27 +40,32 @@ db/migrations/new:
 ## db/migrations/up: apply all up database migrations
 .PHONY: db/migrations/up
 db/migrations/up:
-	@go run ./cmd/migrate --db-dsn=$(DB_DSN) --app-pwd=$(APP_DEFAULT_PASS) up
+	@go run ./cmd/migrate up
 
 ## db/migrations/up/seed: apply all up database migrations and run seeders
 .PHONY: db/migrations/up/seed
 db/migrations/up/seed:
-	@go run ./cmd/migrate --db-dsn=$(DB_DSN) --app-pwd=$(APP_DEFAULT_PASS) --seed=dev up
+	@go run ./cmd/migrate --seed up
 
-## db/migrations/down: apply all down database migrations
+## db/migrations/force version=$1: set the schema version after a failed migration (-1 for none)
+.PHONY: db/migrations/force
+db/migrations/force:
+	@go run ./cmd/migrate force $(version)
+
+## db/migrations/down: roll back every migration, deleting all data (localhost only)
 .PHONY: db/migrations/down
 db/migrations/down:
-	@go run ./cmd/migrate --db-dsn=$(DB_DSN) --app-pwd=$(APP_DEFAULT_PASS) down
+	@go run ./cmd/migrate down
 
-## db/migrations/refresh: apply all refresh database migrations
+## db/migrations/refresh: roll back and reapply every migration, deleting all data (localhost only)
 .PHONY: db/migrations/refresh
 db/migrations/refresh:
-	@go run ./cmd/migrate --db-dsn=$(DB_DSN) --app-pwd=$(APP_DEFAULT_PASS) refresh
+	@go run ./cmd/migrate refresh
 
-## db/migrations/refresh/seed: apply all refresh database migrations and run seeders
+## db/migrations/refresh/seed: refresh, then run seeders
 .PHONY: db/migrations/refresh/seed
 db/migrations/refresh/seed:
-	@go run ./cmd/migrate --db-dsn=$(DB_DSN) --app-pwd=$(APP_DEFAULT_PASS) --seed=dev refresh
+	@go run ./cmd/migrate --seed refresh
 
 # ==================================================================================== #
 # BUILD

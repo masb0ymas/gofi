@@ -1,65 +1,40 @@
 package validator
 
 type MapValidator struct {
-	path path
-	fvs  map[string]*FieldValidator
+	fvs map[string]*FieldValidator
 }
 
 func NewMapValidator() *MapValidator {
-	v := &MapValidator{}
-	v.fvs = make(map[string]*FieldValidator)
-	return v
+	return &MapValidator{fvs: make(map[string]*FieldValidator)}
 }
 
-func NewMapValidatorWithPath(path path) *MapValidator {
-	v := &MapValidator{}
-	v.path = path
-	v.fvs = make(map[string]*FieldValidator)
-	return v
-}
-
+// Validate runs every field's rules; the first failing rule per field wins.
 func (v *MapValidator) Validate(dict map[string]interface{}) (MessageRecord, bool) {
-	sumMr := make(MessageRecord)
-
+	mr := make(MessageRecord)
 	for key, fv := range v.fvs {
-		data := dict[key]
-		mr, passes := fv.Validate(data)
-		if !passes {
-			sumMr = sumMr.Append(mr)
-		}
+		mr = mr.Append(fv.Validate(dict[key]))
 	}
-
-	passes := sumMr.Empty()
-	return sumMr, passes
+	return mr, mr.Empty()
 }
 
 func (v *MapValidator) Field(key string) *FieldValidator {
-	fv := &FieldValidator{path: append(v.path, key)}
+	fv := &FieldValidator{key: key}
 	v.fvs[key] = fv
 	return fv
 }
 
 type FieldValidator struct {
-	path  path
+	key   string
 	rules []rule
 }
 
-func (v *FieldValidator) Validate(data interface{}) (MessageRecord, bool) {
-	var currData interface{} = data
-
+func (v *FieldValidator) Validate(data interface{}) MessageRecord {
 	for _, rule := range v.rules {
-		data, mr, passes := rule(v.path, currData)
-
-		// Stop as soon as the first rule fails. There is no need
-		// to check the remaining rules.
-		if !passes {
-			return mr, false
+		if msg, ok := rule(v.key, data); !ok {
+			return MessageRecord{v.key: []string{msg}}
 		}
-
-		currData = data
 	}
-
-	return make(MessageRecord), true
+	return nil
 }
 
 func (v *FieldValidator) registerRule(rule rule) {

@@ -1,27 +1,36 @@
 package repositories
 
 import (
-	"context"
 	"database/sql"
+	"fmt"
+
+	"gofi/internal/lib/apperr"
 )
 
-type Executor interface {
-	Exec(query string, args ...any) (sql.Result, error)
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	Query(query string, args ...any) (*sql.Rows, error)
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	QueryRow(query string, args ...any) *sql.Row
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+// rowScanner is the scan surface shared by *sql.Row and *sql.Rows, so a single
+// scan function serves both single-row and multi-row reads.
+type rowScanner interface {
+	Scan(dest ...any) error
 }
 
-type QueryOptions struct {
-	Offset int64
-	Limit  int64
-
-	OrderBy string
-	Order   string // asc | desc
+// requireAffected turns a write that touched no row into apperr.ErrNotFound,
+// so callers can tell "updated nothing" apart from a successful write.
+func requireAffected(res sql.Result, what string) error {
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: %s", apperr.ErrNotFound, what)
+	}
+	return nil
 }
 
-type PaginationMetadata struct {
-	Total int64 `json:"total"`
+// ListParams carries the list controls bound from the request query:
+// pagination plus a search term and a "<column>:asc|desc" sort value.
+type ListParams struct {
+	Offset int
+	Limit  int
+	Search string
+	Sorted string
 }

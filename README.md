@@ -1,235 +1,136 @@
 # GoFi
 
-> A high-performance REST API built with Go and Fiber framework
+A Go API starter on Fiber and PostgreSQL, with authentication by
+[Authula](https://github.com/Authula/authula) embedded as a library.
 
-## 📋 Overview
+## Run
 
-GoFi is a production-ready REST API server built with Go, designed for high performance and cost-effectiveness. The codebase follows clean architecture principles with dependency injection as its core design pattern.
+Requires Go 1.27.2+ and PostgreSQL 18 (the migrations use `uuidv7()`).
 
-### Key Features
-
-- **High Performance**: Built on the Fiber web framework with optimized middleware
-- **Clean Architecture**: Dependency injection and separation of concerns
-- **Database Migrations**: Automated schema management with golang-migrate
-- **Security**: JWT authentication, Helmet middleware, CORS support
-- **Developer Experience**: Hot reload support, comprehensive Make commands
-- **Production Ready**: Docker support, cross-compilation, CI/CD ready
-
-### Tech Stack
-
-- **Framework**: [Fiber](https://github.com/gofiber/fiber/v2) v2.52.9
-- **Database**: PostgreSQL with [lib/pq](https://github.com/lib/pq)
-- **Migrations**: [golang-migrate](https://github.com/golang-migrate/migrate)
-- **Authentication**: JWT with [golang-jwt](https://github.com/golang-jwt/jwt)
-- **Email**: [Resend](https://resend.com) integration
-- **Middleware**: CORS, Gzip, Rate Limiting, Request ID, Helmet
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Go 1.24.5 or higher
-- PostgreSQL 18 or higher (using uuid v7)
-- Make (optional but recommended)
-
-### Installation
-
-1. **Clone the repository**
-
-```bash
-git clone https://github.com/masb0ymas/gofi.git
-cd gofi
-```
-
-2. **Set up environment variables**
-
-```bash
-cp .envrc.example .envrc
-```
-
-Edit `.envrc` and configure your environment variables:
-
-```bash
-# Required configurations
-export PORT=8080
-export ENV=development
-export DEBUG=true
-export APP_NAME=gofi
-
-# Database connection
-export DB_DSN=postgres://postgres:postgres@localhost:5432/gofi?sslmode=disable
-
-# JWT secret (generate a secure random string, with `openssl rand -base64 32`)
-export JWT_SECRET=your-secret-key-here
-
-# Application URLs
-export CLIENT_URL=http://localhost:3000
-export SERVER_URL=http://localhost:8080
-
-# Optional: Email service (Resend)
-export RESEND_API_KEY=your-resend-api-key
-export RESEND_FROM_EMAIL=noreply@yourdomain.com
-```
-
-3. **Set up the database**
-
-Create your PostgreSQL database, then update the database name in `/migrations/000001_initial-database.up.sql` (search for `dev_gofi` and replace with your database name).
-
-4. **Run migrations and seed data**
-
-```bash
-make db/migrations/up/seed
-```
-
-5. **Start the application**
-
-```bash
+```sh
+cp .env.example .env   # then fill in APP_SECRET, RESEND_API_KEY, SUPER_USER
 make run
 ```
 
-The API will be available at `http://localhost:8080`
+`make` exports `.env` to the binaries; every setting is an environment
+variable (or the flag of the same name, see `go run ./cmd/api -h`). Nothing
+secret is passed as a process argument.
 
-## 📚 Available Commands
+| Variable | Notes |
+|---|---|
+| `ENV` | `development`, `staging` or `production`. Unset means `production`. Only `development` drops `Secure` from the session cookie and exempts loopback from rate limits. |
+| `DEBUG` | Logs every query. Refused in production: auth queries are logged with their values. |
+| `APP_SECRET` | At least 32 characters (`openssl rand -base64 32`). |
+| `DB_DSN` | PostgreSQL URL. `AUTHULA_DATABASE_URL` must not be set. |
+| `MIGRATE_ON_BOOT` | Apply the embedded migrations before serving. |
+| `SEED_ON_BOOT` | Run the seeders before serving; needs `SUPER_USER`. |
+| `SUPER_USER` | `email:password`, password of 12 to 128 characters. |
+| `SENTRY_DSN` | Optional; panics are reported when set. |
 
-### General
+## Database
 
-```bash
-# List all available commands
-make help
+```sh
+make db/migrations/up            # apply migrations
+make db/migrations/up/seed       # ... and seed the categories
+make db/migrations/force version=N   # after a failed migration
+make db/migrations/refresh       # roll back everything and reapply
 ```
 
-### Development
+`down` and `refresh` delete all data, users included, so they refuse a
+database that is not on localhost unless `--allow-remote` is passed to
+`cmd/migrate`.
 
-```bash
-# Run the application
-make run
+Authula keeps its tables in the `authula` schema and creates them on boot. `public.users` mirrors `authula.users` (id, name, email, image) and
+adds the application `role`. The mirror is updated by a hook on every user
+create and update and repaired on every boot.
 
-# Build the application
-make build/api
+## Super user
+
+With `SEED_ON_BOOT=true` the API creates the `SUPER_USER` account through
+Authula, with a verified email, and gives it the `super_user` role. Only that
+role may create, update or delete categories; everyone can read them.
+
+`SUPER_USER` is the source of truth for the password: if the account's
+password differs, the next seeded boot resets it. `cmd/migrate --seed` does
+not create the super user, because that needs a running Authula.
+
+## Authentication
+
+Authula is mounted at `/v1/auth`. Requests take a JSON body.
+
+| Sign-in | Endpoint that returns the session and tokens |
+|---|---|
+| Email & password | `POST /v1/auth/email-password/sign-in` |
+| Magic link | `POST /v1/auth/magic-link/exchange` |
+| Google | the OAuth callback, when it answers with JSON |
+
+A successful sign-in sets the session cookie and returns `access_token`,
+`refresh_token`, `expires_at` and `expires_in` next to `user` and `session`.
+The API accepts either the cookie or `Authorization: Bearer <access_token>`.
+
+- The access token lasts 15 minutes and the refresh token 24 hours; renew
+  them with `POST /v1/auth/token/refresh` and `{"refresh_token": "..."}`.
+- `POST /v1/auth/token` returns a new pair for the caller's session, from the
+  cookie or a bearer token. Use it when a session has no tokens: after a
+  Google sign-in started with `redirect_to`, which answers with a redirect, or
+  once the refresh token has expired while the 7-day session is still alive.
+- Signing out revokes the tokens of that session, and an access token stops
+  working when its session expires.
+- A state-changing request that a browser sends from another origin is
+  refused with 403 unless the origin is in `CORS_ALLOWED_ORIGINS`. Clients
+  that are not browsers are unaffected.
+
+## Docker
+
+```sh
+docker build -t gofi .
+docker run --env-file .env -p 8080:8080 gofi
 ```
 
-### Database
+The image holds two binaries, `/app/api` (the entrypoint) and `/app/migrate`:
 
-```bash
-# Connect to the database using psql
-make db/psql
-
-# Create a new database migration
-make db/migrations/new name=create_users_table
-
-# Apply all pending migrations
-make db/migrations/up
-
-# Apply migrations and seed test data
-make db/migrations/up/seed
-
-# Rollback all migrations
-make db/migrations/down
-
-# Refresh database (down + up)
-make db/migrations/refresh
-
-# Refresh database with seed data
-make db/migrations/refresh/seed
+```sh
+docker run --env-file .env --entrypoint /app/migrate gofi up
 ```
 
-## 🏗️ Project Structure
+## Release
 
-```
-gofi/
-├── cmd/
-│   ├── api/          # API server entry point
-│   └── migrate/      # Migration CLI tool
-├── internal/         # Private application code
-│   ├── handlers/     # HTTP request handlers
-│   ├── models/       # Data models
-│   ├── repository/   # Data access layer
-│   └── services/     # Business logic
-├── migrations/       # Database migration files
-├── public/           # Static files
-├── script/           # Utility scripts
-├── templates/        # Email/HTML templates
-├── .envrc.example    # Environment variables template
-├── Dockerfile        # Container configuration
-├── Makefile          # Build and development commands
-└── go.mod            # Go module dependencies
-```
+Releases are cut from `main` with [release-it](https://github.com/release-it/release-it),
+run by GitHub Actions, in three steps:
 
-## 🐳 Docker Support
+1. **Release Prepare** (`release-prepare.yml`), started by hand from the
+   Actions tab. It runs the checks below, then release-it bumps the version in
+   `package.json` and updates `CHANGELOG.md`, and the workflow opens a
+   `chore: release vX.Y.Z` pull request from a `release/vX.Y.Z` branch.
+   `increment: auto` derives the bump from the conventional commits.
+2. **Release Publish** (`release-publish.yml`) runs when that pull request is
+   merged into `main`. release-it tags the merge commit, creates the GitHub
+   release and the workflow starts the image build.
+3. **Release** (`release.yml`) builds the image for the tag and pushes it to
+   `ghcr.io/masb0ymas/gofi` as `vX.Y.Z`, `vX.Y` and `latest`. Run it by hand to
+   publish an image of any ref under its short commit SHA.
 
-Build and run with Docker:
+`package.json` exists only to hold the version and the release-it commands;
+it has no dependencies. The repository setting "Allow GitHub Actions to create
+and approve pull requests" must be on for step 1.
 
-```bash
-# Build the Docker image
-docker build -t gofi:latest .
+## Checks
 
-# Run the container
-docker run -d -p 8080:8080 gofi:latest
+```sh
+go test ./...
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 ```
 
-## 🚢 Deployment
+`cmd/api` has an integration test that boots the API against PostgreSQL 18:
+migrations up and down, the seeders, the users mirror, sign-in, tokens and
+the role check. It is skipped unless `TEST_DB_DSN` points at a database it may
+wipe:
 
-### Automated Deployment
-
-Set up GitHub Actions by configuring the workflows in `.github/workflows`. The CI/CD pipeline can push images to:
-
-- Google Container Registry (GCR)
-- AWS Elastic Container Registry (ECR)
-- Docker Hub
-- Any OCI-compatible registry
-
-### Manual Deployment
-
-Build the application for your target environment:
-
-```bash
-make build/api
+```sh
+docker run -d --rm --name gofi-test-pg -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=gofi_test -p 55432:5432 postgres:18
+TEST_DB_DSN='postgres://postgres:postgres@localhost:55432/gofi_test?sslmode=disable' go test ./cmd/api
 ```
 
-This generates two binaries:
-
-- **`/bin/api`** - Compiled for your local machine's architecture
-- **`/bin/linux_amd64/api`** - Cross-compiled for Linux AMD64 (production servers)
-
-Deploy the appropriate binary to your server and run it with the required environment variables.
-
-### Environment Variables for Production
-
-Ensure these are properly configured in production:
-
-- `ENV=production`
-- `DEBUG=false`
-- `JWT_SECRET` - Use a strong, randomly generated secret
-- `DB_DSN` - Production database connection string
-- `CLIENT_URL` - Your frontend application URL
-- `SERVER_URL` - Your API server URL
-
-## 🔒 Security
-
-- JWT-based authentication
-- Helmet middleware for security headers
-- CORS configuration
-- Rate limiting support
-- Environment-based configuration
-- SQL injection protection via parameterized queries
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-## 👤 Author
-
-GitHub: [@masb0ymas](https://github.com/masb0ymas)
-<br/>
-Email: [me@masb0ymas.com](mailto:me@masb0ymas.com)
-<br/>
-
-Credit: [@edwardanthony](https://github.com/edwardanthony)
-
-## ⭐ Show Your Support
-
-Give a ⭐️ if this project helped you!
+The release workflow runs all of it before it tags anything; there is no
+workflow that runs on every push.

@@ -1,27 +1,18 @@
 package repositories
 
-import (
-	"database/sql"
-
-	"gofi/internal/config"
-)
+import "database/sql"
 
 type Repositories struct {
-	Role              RoleRepository
-	User              UserRepository
-	UserVerifyAccount UserVerifyAccountRepository
-	Session           SessionRepository
-	RefreshToken      RefreshTokenRepository
-	UserOAuth         UserOAuthRepository
+	Category CategoryRepository
+	User     UserRepository
 }
 
-func New(db *sql.DB, config *config.ConfigApp) Repositories {
+// New builds every repository over db.
+func New(db *sql.DB) Repositories {
+	base := BaseRepository{DB: db}
+
 	return Repositories{
-		Role:              RoleRepository{BaseRepository: BaseRepository{DB: db, TableName: "roles", Config: config}},
-		User:              UserRepository{BaseRepository: BaseRepository{DB: db, TableName: "users", Config: config}},
-		UserVerifyAccount: UserVerifyAccountRepository{DB: db, Config: config},
-		Session:           SessionRepository{DB: db, Config: config},
-		RefreshToken:      RefreshTokenRepository{DB: db, Config: config},
-		UserOAuth:         UserOAuthRepository{DB: db, Config: config},
+		Category: CategoryRepository{base},
+		User:     UserRepository{base},
 	}
 }

@@ -1,66 +1,55 @@
 package main
 
 import (
-	"gofi/internal/app"
-	"gofi/internal/handlers"
-	"gofi/internal/lib/constant"
-	"gofi/internal/middlewares"
+	fiberadapter "github.com/Authula/authula/adapters/fiber"
+	"github.com/gofiber/fiber/v3"
 
-	"github.com/gofiber/fiber/v2"
+	"gofi/internal/app"
+	"gofi/internal/config"
+	"gofi/internal/handlers"
+	"gofi/internal/middlewares"
+)
+
+// Per-IP request budgets per minute: tight on the auth routes, loose on the
+// rest of the API.
+const (
+	authRateLimit = 30
+	apiRateLimit  = 120
 )
 
 func routes(r *fiber.App, app *app.Application) {
 	h := handlers.New(app)
 	m := middlewares.New(app)
 
-	r.Get("/", func(c *fiber.Ctx) error {
+	r.Get("/", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "Hello, World!",
 		})
 	})
+	r.Get("/health", h.Health.Check)
 
-	r.Get("/health-check", h.Health.Check)
+	// Authula: email & password, Google OAuth2 and magic-link sign-in,
+	// plus GET /me and POST /sign-out, all under authBasePath. The limiter
+	// guards password guessing and sign-in/reset email flooding.
+	r.Use(authBasePath,
+		middlewares.RateLimit(authRateLimit, app.Config.App.Env == config.EnvDevelopment, splitCSV(app.Config.App.RateLimitExemptIPs)),
+		fiberadapter.New(fiberadapter.Config{Handler: app.Auth.Handler()}),
+	)
 
-	authRoutes := r.Group("/v1/auth")
-	authRoutes.Post("/sign-up", h.Auth.SignUp)
-	authRoutes.Post("/sign-in", h.Auth.SignIn)
-	authRoutes.Post("/verify-registration", h.Auth.VerifyRegistration)
-	authRoutes.Get("/verify-session", m.Authorization(), h.Auth.VerifySession)
-	authRoutes.Post("/refresh-token", m.Authorization(), h.Auth.RefreshToken)
-	authRoutes.Post("/sign-out", m.Authorization(), h.Auth.SignOut)
-	authRoutes.Post("/google", h.Auth.GoogleAuthURL)
-	authRoutes.Get("/google/callback", h.Auth.GoogleAuthCallback)
+	exemptLoopback := app.Config.App.Env == config.EnvDevelopment
+	exemptIPs := splitCSV(app.Config.App.RateLimitExemptIPs)
 
-	adminOnly := []string{constant.RoleAdmin}
+	// ponytail: the limiters count in memory, so each replica has its own
+	// budget; give them shared storage once there is more than one instance.
+	v1 := r.Group("/v1", middlewares.RateLimit(apiRateLimit, exemptLoopback, exemptIPs))
 
-	sessionRoutes := r.Group("/v1/sessions")
-	sessionRoutes.Use(m.Authorization(), m.PermissionAccess(adminOnly))
-	sessionRoutes.Get("", h.Session.Index)
-
-	roleRoutes := r.Group("/v1/roles")
-	roleRoutes.Use(m.Authorization())
-	roleRoutes.Get("", h.Role.Index)
-	roleRoutes.Get("/:roleID", h.Role.Show)
-	roleRoutes.Post("", m.PermissionAccess(adminOnly), h.Role.Create)
-	roleRoutes.Put("/:roleID", m.PermissionAccess(adminOnly), h.Role.Update)
-	roleRoutes.Delete("/:roleID", m.PermissionAccess(adminOnly), h.Role.Delete)
-	roleRoutes.Delete("/:roleID/soft-delete", m.PermissionAccess(adminOnly), h.Role.SoftDelete)
-	roleRoutes.Patch("/:roleID/restore", m.PermissionAccess(adminOnly), h.Role.Restore)
-
-	userRoutes := r.Group("/v1/users")
-	userRoutes.Use(m.Authorization())
-	userRoutes.Get("", h.User.Index)
-	userRoutes.Get("/:userID", h.User.Show)
-	userRoutes.Post("", m.PermissionAccess(adminOnly), h.User.Create)
-	userRoutes.Put("/:userID", m.PermissionAccess(adminOnly), h.User.Update)
-	userRoutes.Delete("/:userID", m.PermissionAccess(adminOnly), h.User.Delete)
-	userRoutes.Delete("/:userID/soft-delete", m.PermissionAccess(adminOnly), h.User.SoftDelete)
-	userRoutes.Patch("/:userID/restore", m.PermissionAccess(adminOnly), h.User.Restore)
-
-	// Not found handler
-	r.Use("*", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "Sorry, HTTP resource you are looking for was not found.",
-		})
-	})
+	// Reads are public; writes need a signed-in super user.
+	categories := v1.Group("/categories")
+	categories.Get("/", h.Category.List)
+	categories.Get("/:id", h.Category.Get)
+	categories.Post("/", m.Authorization, m.SuperUser, h.Category.Create)
+	categories.Put("/:id", m.Authorization, m.SuperUser, h.Category.Update)
+	categories.Delete("/:id", m.Authorization, m.SuperUser, h.Category.Delete)
+	categories.Put("/:id/restore", m.Authorization, m.SuperUser, h.Category.Restore)
+	categories.Delete("/:id/force", m.Authorization, m.SuperUser, h.Category.DeletePermanently)
 }

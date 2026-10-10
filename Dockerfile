@@ -1,75 +1,28 @@
-FROM golang:1.24-alpine AS builder
-LABEL author="masb0ymas"
-LABEL name="gofi"
+# syntax=docker/dockerfile:1
 
-WORKDIR /temp-build
+# The build stage runs on the builder's own architecture and cross-compiles,
+# so a multi-platform image needs no emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+WORKDIR /src
 
-RUN apk update && apk add --no-cache make
-
-# We want to populate the module cache based on the go.{mod,sum} files.
-COPY go.mod .
-COPY go.sum .
-
-RUN go mod download
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
+ARG TARGETOS TARGETARCH
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags="-s -w" -o /out/ ./cmd/api ./cmd/migrate
 
-RUN cp .envrc.docker .envrc
-
-# Build the application
-RUN make build/api
-RUN make build/migrate
-
-# Create the final image
-FROM alpine:3.21
-LABEL author="masb0ymas"
-LABEL name="gofi"
-
+# Static image with CA certificates and tzdata, no shell, running as nonroot.
+FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
-RUN apk add ca-certificates tzdata nano make
 
-# Copy the built application
-COPY --from=builder /temp-build/bin/api /app/api
-COPY --from=builder /temp-build/bin/migrate /app/migrate
-COPY --from=builder /temp-build/migrations /app/migrations
-COPY --from=builder /temp-build/templates /app/templates
-COPY --from=builder /temp-build/public /app/public
-COPY --from=builder /temp-build/script/Makefile /app/Makefile
-COPY --from=builder /temp-build/.envrc /app/.envrc
+COPY --from=build /out/api /out/migrate ./
+# The API serves ./public relative to its working directory; the SQL
+# migrations are embedded in the binaries.
+COPY public ./public
 
-# Process .envrc and create .env file during build
-RUN touch /app/.env && \
-    while IFS= read -r line; do \
-    if echo "$line" | grep -q "^export"; then \
-    echo "$line" | sed 's/^export //' >> /app/.env; \
-    fi \
-    done < /app/.envrc && \
-    cat /app/.env
-
-# Expose the port
 EXPOSE 8080
-
-# Run the application
-ENTRYPOINT ["/bin/sh", "-c", "set -a && . /app/.env && set +a && exec ./api \
-    --machine-id=$MACHINE_ID \
-    --debug=$DEBUG \
-    --env=$ENV \
-    --port=$PORT \
-    --app-name=$APP_NAME \
-    --app-secret=$APP_SECRET \
-    --jwt-secret=$JWT_SECRET \
-    --client-url=$CLIENT_URL \
-    --server-url=$SERVER_URL \
-    --db-dsn=$DB_DSN \
-    --db-max-open-conns=$DB_MAX_OPEN_CONNS \
-    --db-max-idle-conns=$DB_MAX_IDLE_CONNS \
-    --db-max-idle-time=$DB_MAX_IDLE_TIME \
-    --redis-addr=$REDIS_ADDR \
-    --redis-password=$REDIS_PASSWORD \
-    --redis-db=$REDIS_DB \
-    --resend-api-key=$RESEND_API_KEY \
-    --resend-from-email=$RESEND_FROM_EMAIL \
-    --resend-debug-to-email=$RESEND_DEBUG_TO_EMAIL \
-    --google-client-id=$GOOGLE_CLIENT_ID \
-    --google-client-secret=$GOOGLE_CLIENT_SECRET \
-    --google-redirect-url=$GOOGLE_REDIRECT_URL"]
+ENTRYPOINT ["/app/api"]

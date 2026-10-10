@@ -1,0 +1,51 @@
+# Publishes a release when a release/* PR merges into main.
+#
+# release-it tags the merge commit and creates the GitHub release — the release
+# API creates the remote tag server-side, so no git push is needed (that also
+# avoids the detached-HEAD push problem in Actions checkouts).
+#
+# A tag created via the API does NOT trigger release.yml's `push: tags` event
+# (GITHUB_TOKEN never cascades), so the image build is dispatched explicitly.
+
+name: Release Publish
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write # tag + GitHub release
+  actions: write # gh workflow run release.yml
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # main after the merge — the commit the tag will point at.
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Tag and create GitHub release
+        run: npm run release:publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch Docker image build
+        run: gh workflow run release.yml --ref "v$(node -p "require('./package.json').version")"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
