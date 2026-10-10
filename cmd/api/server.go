@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	sentryfiber "github.com/gofiber/contrib/v3/sentry"
 
 	"github.com/gofiber/fiber/v3"
@@ -29,19 +30,16 @@ import (
 func serve(app *app.Application) error {
 	proxies := splitCSV(app.Config.App.TrustedProxies)
 
-	// Sentry
-	sentryHandler := sentryfiber.New(sentryfiber.Config{
-		Repanic:         true,
-		WaitForDelivery: true,
-		Timeout:         5 * time.Second,
-	})
-
 	server := fiber.New(fiber.Config{
 		AppName:          app.Config.App.Name,
 		ErrorHandler:     middlewares.ErrorHandler(app.Logger),
 		TrustProxy:       len(proxies) > 0,
 		TrustProxyConfig: fiber.TrustProxyConfig{Proxies: proxies},
 		ProxyHeader:      fiber.HeaderXForwardedFor,
+		// Bound how long a slow client can hold a connection.
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	})
 
 	// Middleware
@@ -50,7 +48,20 @@ func serve(app *app.Application) error {
 	server.Use(helmet.New())
 	server.Use(requestid.New())
 	server.Use(compress.New())
-	server.Use(sentryHandler)
+
+	// Sentry reports panics, and only when a DSN is configured.
+	if dsn := app.Config.Sentry.Dsn; dsn != "" {
+		if err := sentry.Init(sentry.ClientOptions{Dsn: dsn, Environment: app.Config.App.Env}); err != nil {
+			return fmt.Errorf("init sentry: %w", err)
+		}
+		defer sentry.Flush(5 * time.Second)
+
+		server.Use(sentryfiber.New(sentryfiber.Config{
+			Repanic:         true,
+			WaitForDelivery: true,
+			Timeout:         5 * time.Second,
+		}))
+	}
 
 	// Authula answers CORS for its own routes from the same origin list, so
 	// the Fiber middleware skips them to avoid duplicate headers.

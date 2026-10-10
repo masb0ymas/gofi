@@ -11,14 +11,12 @@ type healthHandler struct {
 	app *app.Application
 }
 
+// Check pings the database, so the probe fails when the API cannot serve.
+// It reports nothing but the status: the endpoint is public.
 func (h *healthHandler) Check(c fiber.Ctx) error {
-	v := fiber.Map{
-		"machineID": h.app.Config.App.MachineID,
-		"status":    "ok",
-		"systemInfo": map[string]interface{}{
-			"debug": h.app.Config.App.Debug,
-		},
+	if err := h.app.DB.PingContext(c.Context()); err != nil {
+		h.app.Logger.Error("health check: database unreachable", "error", err)
+		return dtos.Response(c, fiber.StatusServiceUnavailable, fiber.Map{"status": "unavailable"}, nil, "")
 	}
-
-	return dtos.OK(c, v)
+	return dtos.OK(c, fiber.Map{"status": "ok"})
 }

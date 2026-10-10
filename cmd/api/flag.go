@@ -7,9 +7,12 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	authulaenv "github.com/Authula/authula/env"
 
 	"gofi/internal/config"
 	"gofi/internal/seeders"
@@ -67,11 +70,10 @@ const minSecretLen = 32
 
 func parseFlag(cfg *config.Config) {
 	// App
-	flag.StringVar(&cfg.App.MachineID, "machine-id", envString("MACHINE_ID", ""), "Machine ID reported by the health check")
-	flag.StringVar(&cfg.App.Env, "env", envString("ENV", "development"), "Environment")
+	flag.StringVar(&cfg.App.Env, "env", envString("ENV", config.EnvProduction), "Environment: development, staging or production")
 	flag.BoolVar(&cfg.App.Debug, "debug", envBool("DEBUG", false), "Debug mode (also enabled by DEBUG=true)")
 	flag.IntVar(&cfg.App.Port, "port", envInt("PORT", 8080), "Port")
-	flag.StringVar(&cfg.App.Name, "app-name", envString("APP_NAME", "kodingup-assessment"), "App Name")
+	flag.StringVar(&cfg.App.Name, "app-name", envString("APP_NAME", "gofi"), "App Name")
 	flag.StringVar(&cfg.App.Secret, "app-secret", envString("APP_SECRET", ""), "App Secret")
 
 	// CORS
@@ -117,8 +119,20 @@ func parseFlag(cfg *config.Config) {
 }
 
 func validateFlag(cfg *config.Config) {
-	if cfg.App.Env == "" {
-		log.Println("flag environment is marked as local")
+	if !slices.Contains([]string{config.EnvDevelopment, config.EnvStaging, config.EnvProduction}, cfg.App.Env) {
+		log.Fatalf("flag env must be development, staging or production, got %q", cfg.App.Env)
+	}
+
+	// Debug logging prints every Authula query with its values, password
+	// hashes included.
+	if cfg.App.Debug && cfg.App.Env == config.EnvProduction {
+		log.Fatal("flag debug must not be enabled in production")
+	}
+
+	// Authula prefers this variable over the DSN it is given, which would
+	// drop the search_path that keeps its tables in their own schema.
+	if os.Getenv(authulaenv.EnvDatabaseURL) != "" {
+		log.Fatalf("env %s must not be set: Authula uses db-dsn", authulaenv.EnvDatabaseURL)
 	}
 
 	if cfg.App.Port <= 0 || cfg.App.Port > 65535 {

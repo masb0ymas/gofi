@@ -7,9 +7,9 @@ type Repositories struct {
 	User     UserRepository
 }
 
-// New builds every repository over db; debug prints each query (DEBUG=true).
-func New(db *sql.DB, debug bool) Repositories {
-	base := BaseRepository{DB: db, Debug: debug}
+// New builds every repository over db.
+func New(db *sql.DB) Repositories {
+	base := BaseRepository{DB: db}
 
 	return Repositories{
 		Category: CategoryRepository{base},

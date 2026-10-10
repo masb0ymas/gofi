@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"gofi/internal/config"
 	"gofi/internal/lib"
 	"gofi/internal/lib/apperr"
+	"gofi/internal/lib/constant"
 )
 
 // bearerToken returns the token of an "Authorization: Bearer <token>" header,
@@ -77,4 +79,23 @@ func (m *Middlewares) sessionUserID(c fiber.Ctx) string {
 		return ""
 	}
 	return session.UserID
+}
+
+// SuperUser lets only super users through. It runs after Authorization and
+// reads the role from the users mirror; a user with no mirror row is refused.
+func (m *Middlewares) SuperUser(c fiber.Ctx) error {
+	uid, err := lib.ContextGetUID(c)
+	if err != nil {
+		return apperr.ErrUnauthorized
+	}
+
+	role, err := m.app.Repositories.User.Role(c.Context(), uid)
+	if errors.Is(err, apperr.ErrNotFound) || (err == nil && role != constant.RoleSuperUser) {
+		return apperr.ErrForbidden
+	}
+	if err != nil {
+		return err
+	}
+
+	return c.Next()
 }

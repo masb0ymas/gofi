@@ -15,7 +15,6 @@ const (
 	KindForbidden       Kind = http.StatusForbidden
 	KindNotFound        Kind = http.StatusNotFound
 	KindConflict        Kind = http.StatusConflict
-	KindUnprocessable   Kind = http.StatusUnprocessableEntity
 	KindTooManyRequests Kind = http.StatusTooManyRequests
 	KindInternal        Kind = http.StatusInternalServerError
 )

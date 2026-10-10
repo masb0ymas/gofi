@@ -10,8 +10,12 @@ import (
 	"gofi/internal/middlewares"
 )
 
-// authRateLimit is the per-IP request budget per minute on the auth routes.
-const authRateLimit = 30
+// Per-IP request budgets per minute: tight on the auth routes, loose on the
+// rest of the API.
+const (
+	authRateLimit = 30
+	apiRateLimit  = 120
+)
 
 func routes(r *fiber.App, app *app.Application) {
 	h := handlers.New(app)
@@ -32,15 +36,20 @@ func routes(r *fiber.App, app *app.Application) {
 		fiberadapter.New(fiberadapter.Config{Handler: app.Auth.Handler()}),
 	)
 
-	v1 := r.Group("/v1")
+	exemptLoopback := app.Config.App.Env == config.EnvDevelopment
+	exemptIPs := splitCSV(app.Config.App.RateLimitExemptIPs)
 
-	// Reads are public; writes need a signed-in user.
+	// ponytail: the limiters count in memory, so each replica has its own
+	// budget; give them shared storage once there is more than one instance.
+	v1 := r.Group("/v1", middlewares.RateLimit(apiRateLimit, exemptLoopback, exemptIPs))
+
+	// Reads are public; writes need a signed-in super user.
 	categories := v1.Group("/categories")
 	categories.Get("/", h.Category.List)
 	categories.Get("/:id", h.Category.Get)
-	categories.Post("/", m.Authorization, h.Category.Create)
-	categories.Put("/:id", m.Authorization, h.Category.Update)
-	categories.Delete("/:id", m.Authorization, h.Category.Delete)
-	categories.Put("/:id/restore", m.Authorization, h.Category.Restore)
-	categories.Delete("/:id/force", m.Authorization, h.Category.DeletePermanently)
+	categories.Post("/", m.Authorization, m.SuperUser, h.Category.Create)
+	categories.Put("/:id", m.Authorization, m.SuperUser, h.Category.Update)
+	categories.Delete("/:id", m.Authorization, m.SuperUser, h.Category.Delete)
+	categories.Put("/:id/restore", m.Authorization, m.SuperUser, h.Category.Restore)
+	categories.Delete("/:id/force", m.Authorization, m.SuperUser, h.Category.DeletePermanently)
 }

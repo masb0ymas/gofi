@@ -13,11 +13,6 @@ func ListMeta(total, offset, limit int) Metadata {
 	return Metadata{"total": total, "offset": offset, "limit": limit}
 }
 
-// TotalMeta builds metadata carrying only the row count.
-func TotalMeta(total int) Metadata {
-	return Metadata{"total": total}
-}
-
 // Response renders the envelope {data, metadata?, message?}; nil metadata
 // is left out.
 func Response(c fiber.Ctx, status int, data any, metadata Metadata, message string) error {

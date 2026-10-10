@@ -35,9 +35,11 @@ func main() {
 	case modeRefresh:
 		migrateDown(m)
 		migrateUp(m)
+	case modeForce:
+		forceVersion(m, cfg.version)
 	}
 
-	if cfg.seed != "" {
+	if cfg.seed {
 		seedDB, err := lib.OpenDB(cfg.dbDSN)
 		if err != nil {
 			log.Fatal(err)

@@ -1,15 +1,15 @@
 package config
 
-import (
-	"cmp"
-	"os"
-	"strconv"
-	"time"
-)
+import "time"
 
-// EnvDevelopment is the App.Env value that enables development-only behaviour:
-// the loopback rate-limit exemption and session cookies without Secure.
-const EnvDevelopment = "development"
+// Accepted App.Env values. Only EnvDevelopment enables development-only
+// behaviour: the loopback rate-limit exemption and session cookies without
+// Secure. The default is EnvProduction, so forgetting ENV fails safe.
+const (
+	EnvDevelopment = "development"
+	EnvStaging     = "staging"
+	EnvProduction  = "production"
+)
 
 // SessionCookieName is the cookie Authula issues on sign-in; the API's
 // authorization middleware reads the same cookie.
@@ -32,7 +32,6 @@ type ConfigAuth struct {
 }
 
 type ConfigApp struct {
-	MachineID          string
 	Env                string
 	Debug              bool
 	Port               int
@@ -56,24 +55,4 @@ type ConfigDB struct {
 
 type ConfigSentry struct {
 	Dsn string
-}
-
-// Load reads the settings the binaries use today from the environment.
-func Load() Config {
-	port, err := strconv.Atoi(os.Getenv("APP_PORT"))
-	if err != nil {
-		port = 8000
-	}
-
-	return Config{
-		App: ConfigApp{
-			Env:           cmp.Or(os.Getenv("APP_ENV"), EnvDevelopment),
-			Port:          port,
-			Name:          cmp.Or(os.Getenv("APP_NAME"), "gofi"),
-			MigrateOnBoot: os.Getenv("MIGRATE_ON_BOOT") == "true",
-		},
-		DB: ConfigDB{
-			DSN: cmp.Or(os.Getenv("DB_DSN"), "postgres://postgres:postgres@localhost:5432/gofi?sslmode=disable"),
-		},
-	}
 }

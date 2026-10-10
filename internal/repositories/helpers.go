@@ -21,29 +21,15 @@ func translateNotFound(table string, err error) error {
 	return err
 }
 
-// Postgres SQLSTATE codes the repositories translate into 409s.
-const (
-	pgUniqueViolation     = "23505"
-	pgForeignKeyViolation = "23503"
-)
-
-// translateUnique maps a unique-constraint violation onto a typed 409
-// carrying a human message (e.g. "organization name already exists"); any
-// other error passes through unchanged.
-func translateUnique(err error, message string) error {
-	return translateCode(err, pgUniqueViolation, message)
-}
+// pgForeignKeyViolation is the Postgres SQLSTATE for a foreign-key violation.
+const pgForeignKeyViolation = "23503"
 
 // translateForeignKey maps a foreign-key violation onto a typed 409, so a
 // permanent delete blocked by referencing rows reads as a conflict rather than
-// a server error.
+// a server error; any other error passes through unchanged.
 func translateForeignKey(err error, message string) error {
-	return translateCode(err, pgForeignKeyViolation, message)
-}
-
-func translateCode(err error, code, message string) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == code {
+	if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolation {
 		return apperr.New(apperr.KindConflict, "%s", message)
 	}
 	return err
@@ -108,10 +94,10 @@ func (w *whereBuilder) page(p ListParams) (where string, args []any, limit, offs
 
 // countRows returns how many rows match the builder's conditions, for the
 // list metadata. table is a caller-supplied literal, never request input.
-func (r BaseRepository) countRows(ctx context.Context, ex Executor, table string, w *whereBuilder) (int64, error) {
+func (r BaseRepository) countRows(ctx context.Context, table string, w *whereBuilder) (int64, error) {
 	var total int64
 	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE %s`, table, strings.Join(w.conds, " AND "))
-	err := r.queryRowContext(ctx, ex, query, w.args...).Scan(&total)
+	err := r.queryRowContext(ctx, query, w.args...).Scan(&total)
 	return total, err
 }
 

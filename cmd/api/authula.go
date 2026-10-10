@@ -29,6 +29,7 @@ import (
 	sessionplugin "github.com/Authula/authula/plugins/session"
 
 	"gofi/internal/config"
+	"gofi/internal/lib/constant"
 	"gofi/internal/models"
 	"gofi/internal/repositories"
 )
@@ -168,6 +169,26 @@ func addTokensToResponse(reqCtx *authulamodels.RequestContext) error {
 
 	reqCtx.ResponseBody, err = json.Marshal(body)
 	return err
+}
+
+// promoteSuperUser returns the seeder's callback: mirror the user here too,
+// because Authula only logs a failed after-create hook, then give it the
+// super user role.
+func promoteSuperUser(repo *repositories.UserRepository, mirror func(*authulamodels.User) error) func(*authulamodels.User) error {
+	return func(u *authulamodels.User) error {
+		if err := mirror(u); err != nil {
+			return err
+		}
+		id, err := uuid.Parse(u.ID)
+		if err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		return repo.SetRole(ctx, id, constant.RoleSuperUser)
+	}
 }
 
 // newAuth builds the embedded Authula instance: email & password, Google

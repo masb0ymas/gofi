@@ -9,9 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// CategoryRepository manages the categories that assessments are scoped to.
-// Each public method runs against the pool; its exec* counterpart takes an
-// Executor so the same statement can run inside a transaction.
+// CategoryRepository manages categories.
 type CategoryRepository struct {
 	BaseRepository
 }
@@ -27,11 +25,7 @@ func scanCategory(row rowScanner) (models.Category, error) {
 
 // Insert persists a new category.
 func (r *CategoryRepository) Insert(ctx context.Context, c models.Category) error {
-	return r.execInsert(ctx, r.DB, c)
-}
-
-func (r *CategoryRepository) execInsert(ctx context.Context, ex Executor, c models.Category) error {
-	_, err := r.execContext(ctx, ex, `
+	_, err := r.execContext(ctx, `
 		INSERT INTO categories (id, name)
 		VALUES ($1, $2)`,
 		c.ID, c.Name,
@@ -57,10 +51,6 @@ func categoryFilters(p ListParams) *whereBuilder {
 // case-insensitive name search and ordered by p.Sorted. Callers clamp the
 // offset/limit first (see dtos.ListQuery.Clamp).
 func (r *CategoryRepository) List(ctx context.Context, p ListParams) ([]models.Category, error) {
-	return r.execList(ctx, r.DB, p)
-}
-
-func (r *CategoryRepository) execList(ctx context.Context, ex Executor, p ListParams) ([]models.Category, error) {
 	where, args, limit, offset := categoryFilters(p).page(p)
 
 	query := fmt.Sprintf(`
@@ -71,7 +61,7 @@ func (r *CategoryRepository) execList(ctx context.Context, ex Executor, p ListPa
 		categoryColumns, where,
 		resolveOrder(p.Sorted, categorySortColumns, "created_at DESC"), limit, offset)
 
-	rows, err := r.queryContext(ctx, ex, query, args...)
+	rows, err := r.queryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,30 +71,18 @@ func (r *CategoryRepository) execList(ctx context.Context, ex Executor, p ListPa
 // Count returns how many live categories match the List filters, for the
 // response meta block.
 func (r *CategoryRepository) Count(ctx context.Context, p ListParams) (int64, error) {
-	return r.execCount(ctx, r.DB, p)
-}
-
-func (r *CategoryRepository) execCount(ctx context.Context, ex Executor, p ListParams) (int64, error) {
-	return r.countRows(ctx, ex, "categories", categoryFilters(p))
+	return r.countRows(ctx, "categories", categoryFilters(p))
 }
 
 // Get returns one live category by id.
 func (r *CategoryRepository) Get(ctx context.Context, id uuid.UUID) (models.Category, error) {
-	return r.execGet(ctx, r.DB, id)
-}
-
-func (r *CategoryRepository) execGet(ctx context.Context, ex Executor, id uuid.UUID) (models.Category, error) {
 	query := fmt.Sprintf(`SELECT %s FROM categories WHERE id = $1 AND deleted_at IS NULL`, categoryColumns)
-	return scanCategory(r.queryRowContext(ctx, ex, query, id))
+	return scanCategory(r.queryRowContext(ctx, query, id))
 }
 
 // Update rewrites a category.
 func (r *CategoryRepository) Update(ctx context.Context, c models.Category) error {
-	return r.execUpdate(ctx, r.DB, c)
-}
-
-func (r *CategoryRepository) execUpdate(ctx context.Context, ex Executor, c models.Category) error {
-	res, err := r.execContext(ctx, ex, `
+	res, err := r.execContext(ctx, `
 		UPDATE categories
 		SET name = $2, updated_at = now()
 		WHERE id = $1 AND deleted_at IS NULL`,
@@ -116,14 +94,9 @@ func (r *CategoryRepository) execUpdate(ctx context.Context, ex Executor, c mode
 	return requireAffected(res, "category")
 }
 
-// Delete soft-removes one category by stamping deleted_at, so the row
-// stays for referential integrity with students and assessment categories.
+// Delete soft-removes one category by stamping deleted_at.
 func (r *CategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.execDelete(ctx, r.DB, id)
-}
-
-func (r *CategoryRepository) execDelete(ctx context.Context, ex Executor, id uuid.UUID) error {
-	res, err := r.execContext(ctx, ex, `
+	res, err := r.execContext(ctx, `
 		UPDATE categories
 		SET deleted_at = now(), updated_at = now()
 		WHERE id = $1 AND deleted_at IS NULL`,
@@ -138,11 +111,7 @@ func (r *CategoryRepository) execDelete(ctx context.Context, ex Executor, id uui
 // Restore clears deleted_at on a soft-deleted category, returning
 // ErrNotFound when the row is absent or not trashed.
 func (r *CategoryRepository) Restore(ctx context.Context, id uuid.UUID) error {
-	return r.execRestore(ctx, r.DB, id)
-}
-
-func (r *CategoryRepository) execRestore(ctx context.Context, ex Executor, id uuid.UUID) error {
-	res, err := r.execContext(ctx, ex, `
+	res, err := r.execContext(ctx, `
 		UPDATE categories
 		SET deleted_at = NULL, updated_at = now()
 		WHERE id = $1 AND deleted_at IS NOT NULL`,
@@ -155,13 +124,9 @@ func (r *CategoryRepository) execRestore(ctx context.Context, ex Executor, id uu
 }
 
 // ForceDelete permanently removes the row, whether or not it is trashed.
-// FK violations from referencing tables surface to the caller.
+// FK violations from referencing tables surface as a conflict.
 func (r *CategoryRepository) ForceDelete(ctx context.Context, id uuid.UUID) error {
-	return r.execForceDelete(ctx, r.DB, id)
-}
-
-func (r *CategoryRepository) execForceDelete(ctx context.Context, ex Executor, id uuid.UUID) error {
-	res, err := r.execContext(ctx, ex, `DELETE FROM categories WHERE id = $1`, id)
+	res, err := r.execContext(ctx, `DELETE FROM categories WHERE id = $1`, id)
 	if err != nil {
 		return translateForeignKey(err, "category is still referenced by other records")
 	}

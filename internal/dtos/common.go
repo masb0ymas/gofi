@@ -24,13 +24,15 @@ func (dto ListQuery) Validate(v *validator.MapValidator) {
 func (dto ListQuery) base(v *validator.MapValidator) {
 	v.Field("offset").Regex(`^\d+$`)
 	v.Field("limit").Regex(`^\d+$`)
-	v.Field("search").String()
+	v.Field("search").String().MaxLen(maxSearchLen)
 	v.Field("sorted").Regex(`^[a-z_]+:(asc|desc)$`)
 }
 
 const (
 	defaultListLimit = 10
 	maxListLimit     = 100
+	// maxSearchLen bounds the ILIKE term a public list endpoint will run.
+	maxSearchLen = 100
 )
 
 // Clamp normalizes pagination values: a missing or zero limit falls back to

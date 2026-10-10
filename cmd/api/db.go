@@ -28,16 +28,16 @@ func connectDB(cfg *config.ConfigDB) (*sql.DB, error) {
 // repairHint explains how to clear a dirty schema. golang-migrate marks the
 // version it was attempting dirty before it runs, so that number is the failed
 // migration and the last one that fully applied is one below it; forcing to the
-// failed number itself would skip that migration. The first migration is
-// 000002, so anything below it means nothing has been applied yet (-1).
+// failed number itself would skip that migration. Below the first migration
+// nothing has been applied yet, which golang-migrate writes as -1.
 func repairHint(failed uint) string {
 	repair := int(failed) - 1
-	if repair < 2 {
+	if repair < 1 {
 		repair = -1
 	}
 	return fmt.Sprintf(
 		"migration %d failed and left the schema dirty; fix the cause, then run "+
-			"`cd apps/server && make db/migrations/force version=%d` and start again",
+			"`make db/migrations/force version=%d` and start again",
 		failed, repair)
 }
 

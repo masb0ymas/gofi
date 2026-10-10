@@ -32,11 +32,12 @@ func ValidateSuperUser(email, password string) error {
 
 // SuperUserSeeder creates the super user through Authula, so the row lands in
 // the authula schema with a verified email and a hashed password, then
-// mirrors it into the public users table.
+// promotes it: Promote mirrors the user into the public users table and gives
+// it the super user role.
 type SuperUserSeeder struct {
 	DB       *sql.DB
 	Auth     *authulaservices.CoreServices
-	Mirror   func(*authulamodels.User) error
+	Promote  func(*authulamodels.User) error
 	Email    string
 	Password string
 }
@@ -46,7 +47,9 @@ func (s SuperUserSeeder) Name() string {
 }
 
 // Seed creates whatever is missing: the user, its email-password account and
-// the mirror row. An existing account keeps its password.
+// the mirror row. SUPER_USER is the source of truth for the password: an
+// existing account whose password differs is reset to it, so changing
+// SUPER_USER rotates a leaked password on the next boot.
 func (s SuperUserSeeder) Seed() error {
 	// The transaction only holds runSeed's advisory lock; Authula writes on
 	// its own connection, so each step below is individually repeatable.
@@ -66,17 +69,22 @@ func (s SuperUserSeeder) Seed() error {
 		if err != nil {
 			return err
 		}
-		if account == nil {
+		if account == nil || account.Password == nil || !s.Auth.PasswordService.Verify(s.Password, *account.Password) {
 			hash, err := s.Auth.PasswordService.Hash(s.Password)
 			if err != nil {
 				return err
 			}
-			if _, err := s.Auth.AccountService.Create(ctx, user.ID, user.Email, provider, &hash); err != nil {
+			if account == nil {
+				_, err = s.Auth.AccountService.Create(ctx, user.ID, user.Email, provider, &hash)
+			} else {
+				account.Password = &hash
+				_, err = s.Auth.AccountService.Update(ctx, account)
+			}
+			if err != nil {
 				return err
 			}
 		}
 
-		// Authula only logs a failed after-create hook, so mirror again here.
-		return s.Mirror(user)
+		return s.Promote(user)
 	})
 }
