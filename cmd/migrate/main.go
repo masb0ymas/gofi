@@ -1,54 +1,50 @@
 package main
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
-	"gofi/internal/seeders"
 	"log"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"gofi/internal/lib"
+	"gofi/internal/seeders"
 )
 
 func main() {
 	var cfg config
 	parseFlag(&cfg)
 
-	db, err := connectDB(cfg.dbDSN)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	// The migrator owns and closes this connection.
+	migrateDB, err := lib.OpenDB(cfg.dbDSN)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	migrate, err := migrate.NewWithDatabaseInstance("file://./migrations/", "postgres", driver)
+	m, err := lib.NewMigrator(migrateDB)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer m.Close()
 
 	switch cfg.mode {
 	case modeUp:
-		migrateUp(migrate)
+		migrateUp(m)
 	case modeDown:
-		migrateDown(migrate)
+		migrateDown(m)
 	case modeRefresh:
-		migrateDown(migrate)
-		migrateUp(migrate)
+		migrateDown(m)
+		migrateUp(m)
 	}
 
 	if cfg.seed != "" {
-		s := []seeders.Seeder{
-			seeders.RoleSeeder{DB: db},
-			seeders.UserSeeder{DB: db, AppPwd: cfg.appPwd},
+		seedDB, err := lib.OpenDB(cfg.dbDSN)
+		if err != nil {
+			log.Fatal(err)
 		}
+		defer seedDB.Close()
 
-		execSeeders(db, s...)
+		execSeeders(seeders.All(seedDB, cfg.appPwd)...)
 	}
 
 	fmt.Println("Completed")
@@ -56,21 +52,33 @@ func main() {
 
 func migrateUp(m *migrate.Migrate) {
 	fmt.Println("Running up migrations...")
-	if err := m.Up(); err != nil {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatalf("failed to run up migrations: %v", err)
 	}
 }
 
 func migrateDown(m *migrate.Migrate) {
 	fmt.Println("Running down migrations...")
-	if err := m.Down(); err != nil {
+	if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatalf("failed to run down migrations: %v", err)
 	}
 }
 
-func execSeeders(db *sql.DB, seeders ...seeders.Seeder) {
+// forceVersion clears a dirty schema_migrations row. A failed migration leaves
+// the version marked dirty and every later run refuses to start, so the flag
+// has to be reset by hand once the schema is known to be at that version.
+func forceVersion(m *migrate.Migrate, version int) {
+	fmt.Printf("Forcing schema version to %d...\n", version)
+	if err := m.Force(version); err != nil {
+		log.Fatalf("failed to force schema version: %v", err)
+	}
+}
+
+func execSeeders(seeders ...seeders.Seeder) {
 	for _, seeder := range seeders {
 		fmt.Printf("Running %s seeder...\n", seeder.Name())
-		seeder.Seed()
+		if err := seeder.Seed(); err != nil {
+			log.Fatalf("%s seeder failed: %v", seeder.Name(), err)
+		}
 	}
 }

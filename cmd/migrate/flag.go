@@ -28,7 +28,7 @@ type config struct {
 func parseFlag(cfg *config) {
 	flag.StringVar(&cfg.dbDSN, "db-dsn", "", "PostgreSQL DSN")
 	flag.StringVar(&cfg.seed, "seed", "", "seed")
-	flag.StringVar(&cfg.appPwd, "app-pwd", "", "app default password")
+	flag.StringVar(&cfg.appPwd, "app-pwd", "", "app password")
 
 	flag.Parse()
 	validateFlag(cfg)
@@ -44,10 +44,6 @@ func validateFlag(cfg *config) {
 
 	if cfg.dbDSN == "" {
 		log.Fatal("flag --db-dsn must be provided")
-	}
-
-	if cfg.appPwd == "" {
-		log.Fatal("flag --app-pwd must be provided")
 	}
 
 	if cfg.mode == modeDown && cfg.seed != "" {

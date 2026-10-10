@@ -1,7 +1,7 @@
 package services
 
-type Services struct {
-	Email  EmailService
-	Google GoogleService
-	S3     S3Service
+type Services struct{}
+
+func New() *Services {
+	return &Services{}
 }

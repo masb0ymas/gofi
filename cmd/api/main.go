@@ -1,61 +1,59 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"log/slog"
 	"os"
 
 	"gofi/internal/app"
 	"gofi/internal/config"
 	"gofi/internal/repositories"
-	"gofi/internal/services"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	var cfg config.Config
 	parseFlag(&cfg)
 
-	loggerLevel := slog.LevelInfo
-
+	level := slog.LevelInfo
 	if cfg.App.Debug {
-		loggerLevel = slog.LevelDebug
+		level = slog.LevelDebug
 	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: loggerLevel,
-	}))
+	if cfg.App.MigrateOnBoot {
+		if err := migrateUp(&cfg.DB, logger); err != nil {
+			return err
+		}
+	}
 
 	db, err := connectDB(&cfg.DB)
 	if err != nil {
-		logger.Error("failed to connect to database", "error", err.Error())
-		os.Exit(1)
+		return fmt.Errorf("connect database: %w", err)
 	}
 	defer db.Close()
 
-	redisClient, err := connectRedis(&cfg.Redis)
-	if err != nil {
-		logger.Error("failed to connect to redis", "error", err.Error())
-		os.Exit(1)
+	if cfg.App.SeedOnBoot {
+		if err := seedAll(db, cfg.App.SeedPassword, logger); err != nil {
+			return err
+		}
 	}
-	defer redisClient.Close()
 
-	googleOAuthConfig := newGoogleOAuth(cfg.Google)
+	// Creating the instance runs Authula's own migrations.
+	auth := newAuth(cfg, logger)
+	defer auth.CloseSystems()
+	defer auth.ClosePlugins()
 
-	s3Client := newS3Client(cfg.S3)
-
-	// Dependencies Injection
-	app := &app.Application{
+	return serve(&app.Application{
 		Config:       cfg,
 		Logger:       logger,
-		Repositories: repositories.New(db, &cfg.App),
-		Services: services.Services{
-			Email:  services.EmailService{Config: cfg.Resend},
-			Google: services.GoogleService{Config: googleOAuthConfig, RedisClient: redisClient},
-			S3:     services.S3Service{Client: s3Client},
-		},
-	}
-
-	if err := serve(app); err != nil {
-		logger.Error("failed to start server", "error", err.Error())
-		os.Exit(1)
-	}
+		Repositories: repositories.New(db, cfg.App.Debug),
+		Auth:         auth,
+	})
 }

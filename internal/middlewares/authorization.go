@@ -1,65 +1,37 @@
 package middlewares
 
 import (
-	"fmt"
-	"net/http"
 	"time"
 
-	"gofi/internal/lib"
-	"gofi/internal/lib/jwt"
-
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+
+	"gofi/internal/config"
+	"gofi/internal/lib"
+	"gofi/internal/lib/apperr"
 )
 
-func (m Middlewares) Authorization() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		jsonWebToken := jwt.New(&m.app.Config.App)
-
-		extractToken, err := jsonWebToken.ExtractToken(c)
-		if err != nil {
-			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-				"message": fmt.Sprintf("Unauthorized, %s", err.Error()),
-			})
-		}
-
-		session, err := m.app.Repositories.Session.GetByToken(extractToken)
-		if err != nil {
-			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-				"message": fmt.Sprintf("Unauthorized, %s", err.Error()),
-			})
-		}
-
-		if session.ID != uuid.Nil {
-			claims, err := jsonWebToken.Verify(extractToken)
-			if err != nil {
-				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-					"message": fmt.Sprintf("Unauthorized, %s", err.Error()),
-				})
-			}
-
-			if claims.UID != session.UserID.String() {
-				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-					"message": "Unauthorized, invalid session",
-				})
-			}
-
-			if claims.Exp < time.Now().Unix() {
-				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-					"message": fmt.Sprintf("Unauthorized, %s", "token has expired"),
-				})
-			}
-
-			uid, err := uuid.Parse(claims.UID)
-			if err != nil {
-				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-					"message": "Unauthorized, invalid session",
-				})
-			}
-
-			lib.ContextSetUID(c, uid)
-		}
-
-		return c.Next()
+// Authorization requires a live Authula session cookie and stores the
+// signed-in user's id for handlers (see lib.ContextGetUID). It mirrors the
+// session plugin's "session.auth" check for routes outside the Authula
+// handler; sliding renewal still happens on Authula's own routes (e.g. /me).
+func (m *Middlewares) Authorization(c fiber.Ctx) error {
+	token := c.Cookies(config.SessionCookieName)
+	if token == "" {
+		return apperr.ErrUnauthorized
 	}
+
+	services := m.app.Auth.CoreServices()
+	session, err := services.SessionService.GetByToken(c.Context(), services.TokenService.Hash(token))
+	if err != nil || session == nil || session.ExpiresAt.Before(time.Now().UTC()) {
+		return apperr.ErrUnauthorized
+	}
+
+	uid, err := uuid.Parse(session.UserID)
+	if err != nil {
+		return apperr.ErrUnauthorized
+	}
+	lib.ContextSetUID(c, uid)
+
+	return c.Next()
 }

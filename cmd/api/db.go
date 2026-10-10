@@ -1,17 +1,20 @@
 package main
 
 import (
-	"context"
 	"database/sql"
-	"time"
+	"errors"
+	"fmt"
+	"log/slog"
 
-	_ "github.com/lib/pq"
+	"github.com/golang-migrate/migrate/v4"
 
 	"gofi/internal/config"
+	"gofi/internal/lib"
+	"gofi/internal/seeders"
 )
 
 func connectDB(cfg *config.ConfigDB) (*sql.DB, error) {
-	db, err := sql.Open("postgres", cfg.DSN)
+	db, err := lib.OpenDB(cfg.DSN)
 	if err != nil {
 		return nil, err
 	}
@@ -19,13 +22,72 @@ func connectDB(cfg *config.ConfigDB) (*sql.DB, error) {
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
 	db.SetMaxIdleConns(cfg.MaxIdleConns)
 	db.SetConnMaxIdleTime(cfg.MaxIdleTime)
+	return db, nil
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+// repairHint explains how to clear a dirty schema. golang-migrate marks the
+// version it was attempting dirty before it runs, so that number is the failed
+// migration and the last one that fully applied is one below it; forcing to the
+// failed number itself would skip that migration. The first migration is
+// 000002, so anything below it means nothing has been applied yet (-1).
+func repairHint(failed uint) string {
+	repair := int(failed) - 1
+	if repair < 2 {
+		repair = -1
+	}
+	return fmt.Sprintf(
+		"migration %d failed and left the schema dirty; fix the cause, then run "+
+			"`cd apps/server && make db/migrations/force version=%d` and start again",
+		failed, repair)
+}
 
-	if err := db.PingContext(ctx); err != nil {
-		return nil, err
+// migrateUp applies pending migrations on a dedicated connection, because
+// closing the migrator also closes the *sql.DB it was given.
+func migrateUp(cfg *config.ConfigDB, logger *slog.Logger) error {
+	db, err := connectDB(&config.ConfigDB{DSN: cfg.DSN, MaxOpenConns: 1, MaxIdleConns: 1})
+	if err != nil {
+		return fmt.Errorf("connect for migrations: %w", err)
 	}
 
-	return db, nil
+	m, err := lib.NewMigrator(db)
+	if err != nil {
+		_ = db.Close()
+		return err
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		// A failed migration leaves the row dirty, so report the repair
+		// alongside the original cause instead of the bare driver error.
+		if version, dirty, verr := m.Version(); verr == nil && dirty {
+			return fmt.Errorf("%s: %w", repairHint(version), err)
+		}
+		var dirty migrate.ErrDirty
+		if errors.As(err, &dirty) {
+			return fmt.Errorf("%s: %w", repairHint(uint(dirty.Version)), err)
+		}
+		return fmt.Errorf("apply migrations: %w", err)
+	}
+
+	version, dirty, err := m.Version()
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+		return fmt.Errorf("read schema version: %w", err)
+	}
+	if dirty {
+		return errors.New(repairHint(version))
+	}
+
+	logger.Info("database schema up to date", "version", version)
+	return nil
+}
+
+// seedAll runs every seeder on the application pool. Seeders are idempotent.
+func seedAll(db *sql.DB, defaultPassword string, logger *slog.Logger) error {
+	for _, s := range seeders.All(db, defaultPassword) {
+		logger.Info("running seeder", "name", s.Name())
+		if err := s.Seed(); err != nil {
+			return fmt.Errorf("%s seeder: %w", s.Name(), err)
+		}
+	}
+	return nil
 }

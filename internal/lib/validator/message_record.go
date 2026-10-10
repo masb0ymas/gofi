@@ -19,8 +19,3 @@ func (mr MessageRecord) Append(amr MessageRecord) MessageRecord {
 func (mr MessageRecord) Empty() bool {
 	return len(mr) == 0
 }
-
-func (mr *MessageRecord) InsertMessage(path path, msg string) {
-	key := path.key()
-	(*mr)[key] = append((*mr)[key], msg)
-}

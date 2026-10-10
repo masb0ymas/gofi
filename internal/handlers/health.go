@@ -1,16 +1,17 @@
 package handlers
 
 import (
-	"gofi/internal/app"
+	"github.com/gofiber/fiber/v3"
 
-	"github.com/gofiber/fiber/v2"
+	"gofi/internal/app"
+	"gofi/internal/dtos"
 )
 
 type healthHandler struct {
 	app *app.Application
 }
 
-func (h *healthHandler) Check(c *fiber.Ctx) error {
+func (h *healthHandler) Check(c fiber.Ctx) error {
 	v := fiber.Map{
 		"machineID": h.app.Config.App.MachineID,
 		"status":    "ok",
@@ -19,5 +20,5 @@ func (h *healthHandler) Check(c *fiber.Ctx) error {
 		},
 	}
 
-	return c.Status(fiber.StatusOK).JSON(v)
+	return dtos.OK(c, v)
 }
