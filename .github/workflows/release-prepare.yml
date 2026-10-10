@@ -1,0 +1,64 @@
+# Bumps the version with release-it: updates CHANGELOG.md, commits, tags,
+# pushes and opens a draft GitHub release. Called by release.yml.
+name: Release / prepare
+
+on:
+  workflow_call:
+    inputs:
+      increment:
+        type: string
+        default: auto
+      dry-run:
+        type: boolean
+        default: false
+    outputs:
+      tag:
+        description: The tag release-it created, e.g. v1.2.3 (empty on a dry run)
+        value: ${{ jobs.prepare.outputs.tag }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      # Full history and tags: the changelog and the bump are derived from the
+      # commits since the last tag.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: git config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # The repository has no package.json, so release-it and its plugin are
+      # fetched for this run; the version itself comes from the git tags.
+      - name: release-it
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCREMENT: ${{ inputs.increment }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          args=(--ci)
+          if [ "$INCREMENT" != "auto" ]; then args+=("$INCREMENT"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          npx --yes -p release-it@21 -p @release-it/conventional-changelog@12 release-it "${args[@]}"
+
+      - name: tag
+        id: tag
+        if: ${{ !inputs.dry-run }}
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"

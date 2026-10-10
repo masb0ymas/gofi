@@ -76,6 +76,36 @@ The API accepts either the cookie or `Authorization: Bearer <access_token>`.
 - A Google sign-in started with `redirect_to` answers with a redirect, which
   carries the cookie but no tokens.
 
+## Docker
+
+```sh
+docker build -t gofi .
+docker run --env-file .env -p 8080:8080 gofi
+```
+
+The image holds two binaries, `/app/api` (the entrypoint) and `/app/migrate`:
+
+```sh
+docker run --env-file .env --entrypoint /app/migrate gofi up
+```
+
+## Release
+
+Releases are cut from `main` with [release-it](https://github.com/release-it/release-it),
+run by GitHub Actions. Start the **Release** workflow from the Actions tab:
+
+1. `release.yml` is the entry point. It takes the bump (`auto` derives it from
+   the conventional commits) and an optional dry run.
+2. `release-prepare.yml` runs the tests, then release-it: it updates
+   `CHANGELOG.md`, commits `chore(release): vX.Y.Z`, tags, pushes and opens a
+   draft GitHub release.
+3. `release-publish.yml` builds the image for that tag, pushes it to
+   `ghcr.io/masb0ymas/gofi` (`X.Y.Z`, `X.Y` and `latest`) and makes the release
+   public. Run it by hand with a tag to publish that tag again.
+
+The release commit is pushed straight to `main`, so a rule that requires pull
+requests on `main` has to let GitHub Actions bypass it.
+
 ## Checks
 
 ```sh

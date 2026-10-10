@@ -1,0 +1,39 @@
+# Entry point for a release: run it by hand from the Actions tab, on main.
+# It prepares the release (version, changelog, tag, draft GitHub release) and
+# then publishes it (container image, release made public).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: Version bump; auto derives it from the conventional commits
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+      dry-run:
+        description: Show what would be released without changing anything
+        type: boolean
+        default: false
+
+# One release at a time; a second run waits instead of racing for the tag.
+concurrency: release
+
+jobs:
+  prepare:
+    uses: ./.github/workflows/release-prepare.yml
+    permissions:
+      contents: write
+    with:
+      increment: ${{ inputs.increment }}
+      dry-run: ${{ inputs.dry-run }}
+
+  publish:
+    needs: prepare
+    if: ${{ !inputs.dry-run }}
+    uses: ./.github/workflows/release-publish.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
