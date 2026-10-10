@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -21,6 +22,8 @@ import (
 	emailpasswordplugintypes "github.com/Authula/authula/plugins/email-password/types"
 	emailplugintypes "github.com/Authula/authula/plugins/email/types"
 	jwtplugin "github.com/Authula/authula/plugins/jwt"
+	jwtrepositories "github.com/Authula/authula/plugins/jwt/repositories"
+	jwtservices "github.com/Authula/authula/plugins/jwt/services"
 	jwtplugintypes "github.com/Authula/authula/plugins/jwt/types"
 	magiclinkplugin "github.com/Authula/authula/plugins/magic-link"
 	magiclinkplugintypes "github.com/Authula/authula/plugins/magic-link/types"
@@ -51,7 +54,7 @@ var (
 // and the session check stands down once it has identified the caller.
 var authRouteMappings = []authulamodels.RouteMapping{
 	{
-		Paths:   []string{"GET:/me", "POST:/sign-out"},
+		Paths:   []string{"GET:/me", "POST:/sign-out", "POST:/token"},
 		Plugins: []string{bearerAuthOptional, sessionAuth},
 	},
 	{
@@ -191,6 +194,73 @@ func promoteSuperUser(repo *repositories.UserRepository, mirror func(*authulamod
 	}
 }
 
+// refreshTokenTTL is short because the refresh token is returned in a JSON
+// body, where a script on the client's page can read it; the session itself
+// lasts longer and can always be exchanged for a new pair at POST /token.
+const refreshTokenTTL = 24 * time.Hour
+
+// tokenIssuer mints a token pair for a request's own session, the way the jwt
+// plugin does after a sign-in. It covers the callers the plugin leaves
+// without tokens: a sign-in repeated while a session is active, and a session
+// that began with a redirect (Google).
+type tokenIssuer struct {
+	tokens        jwtservices.TokenService
+	refreshTokens jwtservices.RefreshTokenRepository
+}
+
+func newTokenIssuer(auth *authula.Auth) (tokenIssuer, error) {
+	tokens, ok := auth.ServiceRegistry.Get(authulamodels.ServiceJWT.String()).(jwtservices.TokenService)
+	if !ok {
+		return tokenIssuer{}, errors.New("jwt plugin is not enabled")
+	}
+	return tokenIssuer{tokens: tokens, refreshTokens: jwtrepositories.NewRefreshTokenRepository(auth.DB())}, nil
+}
+
+// issue stores the pair in the request values, where addTokensToResponse
+// picks it up. It does nothing for a request without a user session.
+func (i tokenIssuer) issue(reqCtx *authulamodels.RequestContext) error {
+	sessionID, _ := reqCtx.Values[authulamodels.ContextSessionID.String()].(string)
+	if reqCtx.Actor == nil || reqCtx.Actor.Type != authulamodels.ActorUser || sessionID == "" {
+		return nil
+	}
+
+	ctx := reqCtx.Request.Context()
+	pair, err := i.tokens.GenerateUserToken(ctx, reqCtx.Actor.ID, sessionID, nil)
+	if err != nil {
+		return err
+	}
+	if err := i.refreshTokens.StoreRefreshToken(ctx, &jwtplugintypes.RefreshToken{
+		ID:        uuid.NewString(),
+		SessionID: sessionID,
+		TokenHash: jwtservices.HashRefreshToken(pair.RefreshToken),
+		ExpiresAt: time.Now().Add(refreshTokenTTL),
+		CreatedAt: time.Now(),
+	}); err != nil {
+		return err
+	}
+
+	reqCtx.Values[jwtplugintypes.JWTTokenTypeAccess.String()] = pair.AccessToken
+	reqCtx.Values[jwtplugintypes.JWTTokenTypeRefresh.String()] = pair.RefreshToken
+	return nil
+}
+
+// route is POST /token: a token pair for the caller's current session.
+func (i tokenIssuer) route() authulamodels.Route {
+	return authulamodels.Route{
+		Method: http.MethodPost,
+		Path:   "/token",
+		Handler: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			reqCtx, _ := authulamodels.GetRequestContext(r.Context())
+			if err := i.issue(reqCtx); err != nil {
+				reqCtx.SetJSONResponse(http.StatusInternalServerError, map[string]any{"message": "failed to issue tokens"})
+				return
+			}
+			// addTokensToResponse fills the body in.
+			reqCtx.SetJSONResponse(http.StatusOK, map[string]any{})
+		}),
+	}
+}
+
 // newAuth builds the embedded Authula instance: email & password, Google
 // OAuth2 and email magic links on top of cookie sessions, with emails sent
 // through Resend. Authula migrates its own tables (users, accounts, sessions,
@@ -261,12 +331,11 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 				Resend:      &emailplugintypes.ResendConfig{ApiKey: cfg.Auth.ResendAPIKey},
 			}),
 			// Mints an access and refresh token on every successful sign-in and
-			// serves POST /token/refresh; the refresh token lives as long as the
-			// session it belongs to.
+			// serves POST /token/refresh.
 			jwtplugin.New(jwtplugintypes.JWTPluginConfig{
 				Enabled:          true,
 				ExpiresIn:        15 * time.Minute,
-				RefreshExpiresIn: 7 * 24 * time.Hour,
+				RefreshExpiresIn: refreshTokenTTL,
 			}),
 			// Accepts that access token as "Authorization: Bearer". Registered
 			// before the session plugin: hooks of equal order run in plugin
@@ -298,6 +367,25 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 				},
 			}),
 		},
+	})
+
+	issuer, err := newTokenIssuer(auth)
+	if err != nil {
+		// Unreachable while the jwt plugin above stays enabled.
+		panic(err)
+	}
+	auth.RegisterRoute(issuer.route())
+
+	// A sign-in repeated while a session is active answers from that session
+	// and the jwt plugin skips minting for it, so mint here instead.
+	auth.RegisterHook(authulamodels.Hook{
+		Stage: authulamodels.HookAfter,
+		Matcher: func(reqCtx *authulamodels.RequestContext) bool {
+			skipped, _ := reqCtx.Values[authulamodels.ContextAuthIdempotentSkipTokensMint.String()].(bool)
+			return skipped
+		},
+		Handler: issuer.issue,
+		Order:   16,
 	})
 
 	// Order 20 runs after the jwt plugin's own minting hook (15).

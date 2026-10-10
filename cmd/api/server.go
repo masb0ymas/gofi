@@ -28,6 +28,22 @@ import (
 // serve runs the HTTP server until SIGINT/SIGTERM, then drains in-flight
 // requests before returning.
 func serve(app *app.Application) error {
+	server, err := newServer(app)
+	if err != nil {
+		return err
+	}
+	// A no-op unless newServer initialised Sentry.
+	defer sentry.Flush(5 * time.Second)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	app.Logger.Info("starting server", "port", app.Config.App.Port, "env", app.Config.App.Env, "auth", authBasePath)
+	return server.Listen(fmt.Sprintf(":%d", app.Config.App.Port), fiber.ListenConfig{GracefulContext: ctx})
+}
+
+// newServer builds the Fiber app with its middleware and routes.
+func newServer(app *app.Application) (*fiber.App, error) {
 	proxies := splitCSV(app.Config.App.TrustedProxies)
 
 	server := fiber.New(fiber.Config{
@@ -52,9 +68,8 @@ func serve(app *app.Application) error {
 	// Sentry reports panics, and only when a DSN is configured.
 	if dsn := app.Config.Sentry.Dsn; dsn != "" {
 		if err := sentry.Init(sentry.ClientOptions{Dsn: dsn, Environment: app.Config.App.Env}); err != nil {
-			return fmt.Errorf("init sentry: %w", err)
+			return nil, fmt.Errorf("init sentry: %w", err)
 		}
-		defer sentry.Flush(5 * time.Second)
 
 		server.Use(sentryfiber.New(sentryfiber.Config{
 			Repanic:         true,
@@ -63,9 +78,15 @@ func serve(app *app.Application) error {
 		}))
 	}
 
+	origins := splitCSV(app.Config.App.CORSAllowedOrigins)
+
+	// CSRF: the session cookie is SameSite=Lax, which a sibling subdomain can
+	// get around. This covers Authula's routes too, as they are mounted here.
+	server.Use(middlewares.CrossOrigin(origins))
+
 	// Authula answers CORS for its own routes from the same origin list, so
 	// the Fiber middleware skips them to avoid duplicate headers.
-	if origins := splitCSV(app.Config.App.CORSAllowedOrigins); len(origins) > 0 {
+	if len(origins) > 0 {
 		server.Use(cors.New(cors.Config{
 			Next:             func(c fiber.Ctx) bool { return strings.HasPrefix(c.Path(), authBasePath) },
 			AllowOrigins:     origins,
@@ -77,9 +98,5 @@ func serve(app *app.Application) error {
 
 	routes(server, app)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	app.Logger.Info("starting server", "port", app.Config.App.Port, "env", app.Config.App.Env, "auth", authBasePath)
-	return server.Listen(fmt.Sprintf(":%d", app.Config.App.Port), fiber.ListenConfig{GracefulContext: ctx})
+	return server, nil
 }

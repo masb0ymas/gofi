@@ -48,7 +48,8 @@ func (m *Middlewares) Authorization(c fiber.Ctx) error {
 
 // bearerUserID returns the user a valid access token belongs to, or "". The
 // jwt plugin verifies the signature and expiry and that the token's session
-// still exists, so signing out revokes it.
+// still exists, so signing out revokes it. It does not check that the session
+// is still live, so that is checked here.
 func (m *Middlewares) bearerUserID(c fiber.Ctx) string {
 	token := bearerToken(c.Get(fiber.HeaderAuthorization))
 	if token == "" {
@@ -61,6 +62,12 @@ func (m *Middlewares) bearerUserID(c fiber.Ctx) string {
 	}
 	actor, err := jwt.ValidateToken(c.Context(), token)
 	if err != nil || actor.Type != authulamodels.ActorUser {
+		return ""
+	}
+
+	sessionID, _ := actor.Claims["session_id"].(string)
+	session, err := m.app.Auth.CoreServices().SessionService.GetByID(c.Context(), sessionID)
+	if err != nil || session == nil || session.ExpiresAt.Before(time.Now().UTC()) {
 		return ""
 	}
 	return actor.ID
