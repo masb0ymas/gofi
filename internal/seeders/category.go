@@ -18,8 +18,8 @@ func (s CategorySeeder) Name() string {
 // Seed inserts the fixed categories; existing ids are left untouched.
 func (s CategorySeeder) Seed() error {
 	categories := []struct{ id, name string }{
-		{constant.CategoryPublic, "Public"},
-		{constant.CategoryPrivate, "Private"},
+		{constant.CategoryPublicID, "Public"},
+		{constant.CategoryPrivateID, "Private"},
 	}
 
 	return runSeed(s.DB, func(ctx context.Context, tx *sql.Tx) error {

@@ -35,12 +35,12 @@ func routes(r *fiber.App, app *app.Application) {
 	v1 := r.Group("/v1")
 
 	// Reads are public; writes need a signed-in user.
-	category := v1.Group("/category")
-	category.Get("/", h.Category.List)
-	category.Get("/:id", h.Category.Get)
-	category.Post("/", m.Authorization, h.Category.Create)
-	category.Put("/:id", m.Authorization, h.Category.Update)
-	category.Delete("/:id", m.Authorization, h.Category.Delete)
-	category.Put("/:id/restore", m.Authorization, h.Category.Restore)
-	category.Delete("/:id/force", m.Authorization, h.Category.DeletePermanently)
+	categories := v1.Group("/categories")
+	categories.Get("/", h.Category.List)
+	categories.Get("/:id", h.Category.Get)
+	categories.Post("/", m.Authorization, h.Category.Create)
+	categories.Put("/:id", m.Authorization, h.Category.Update)
+	categories.Delete("/:id", m.Authorization, h.Category.Delete)
+	categories.Put("/:id/restore", m.Authorization, h.Category.Restore)
+	categories.Delete("/:id/force", m.Authorization, h.Category.DeletePermanently)
 }

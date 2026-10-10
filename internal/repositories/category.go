@@ -22,7 +22,7 @@ const categoryColumns = `
 func scanCategory(row rowScanner) (models.Category, error) {
 	var c models.Category
 	err := row.Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt, &c.DeletedAt, &c.Name)
-	return c, translateNotFound(err)
+	return c, translateNotFound("categories", err)
 }
 
 // Insert persists a new category.
