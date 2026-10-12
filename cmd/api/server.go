@@ -52,6 +52,9 @@ func newServer(app *app.Application) (*fiber.App, error) {
 		TrustProxy:       len(proxies) > 0,
 		TrustProxyConfig: fiber.TrustProxyConfig{Proxies: proxies},
 		ProxyHeader:      fiber.HeaderXForwardedFor,
+		// Without it c.IP() is the raw header, which a client prefixes with
+		// whatever it likes, so every request gets a fresh rate-limit key.
+		EnableIPValidation: true,
 		// Bound how long a slow client can hold a connection.
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -91,6 +94,9 @@ func newServer(app *app.Application) (*fiber.App, error) {
 			Next:             func(c fiber.Ctx) bool { return strings.HasPrefix(c.Path(), authBasePath) },
 			AllowOrigins:     origins,
 			AllowCredentials: true,
+			// Without this a browser client cannot read the marker that says a
+			// write was replayed instead of applied (see middlewares.Idempotency).
+			ExposeHeaders: []string{middlewares.HeaderIdempotentReplayed},
 		}))
 	}
 

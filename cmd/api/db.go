@@ -25,6 +25,11 @@ func connectDB(cfg *config.ConfigDB) (*sql.DB, error) {
 	return db, nil
 }
 
+// DB_MAX_OPEN_CONNS and DB_MAX_IDLE_CONNS are the whole replica's budget, but
+// Authula opens its own pool: it takes half and the API pool the rest.
+func authPoolSize(n int) int { return max(1, n/2) }
+func apiPoolSize(n int) int  { return max(1, n-authPoolSize(n)) }
+
 // repairHint explains how to clear a dirty schema. golang-migrate marks the
 // version it was attempting dirty before it runs, so that number is the failed
 // migration and the last one that fully applied is one below it; forcing to the

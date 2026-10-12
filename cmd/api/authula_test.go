@@ -1,12 +1,34 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	authulamodels "github.com/Authula/authula/models"
+	emailpasswordconstants "github.com/Authula/authula/plugins/email-password/constants"
 )
+
+func TestRefuseUnverified(t *testing.T) {
+	// Same error as a wrong password, so the answer does not reveal the account.
+	if err := refuseUnverified(context.Background(), &authulamodels.User{EmailVerified: false}); !errors.Is(err, emailpasswordconstants.ErrInvalidCredentials) {
+		t.Errorf("unverified user: %v, want ErrInvalidCredentials", err)
+	}
+	if err := refuseUnverified(context.Background(), &authulamodels.User{EmailVerified: true}); err != nil {
+		t.Errorf("verified user: %v", err)
+	}
+}
+
+func TestPoolSplit(t *testing.T) {
+	// The pools share the budget, and each keeps at least one connection.
+	for n, want := range map[int][2]int{25: {13, 12}, 2: {1, 1}, 1: {1, 1}, 0: {1, 1}} {
+		if api, auth := apiPoolSize(n), authPoolSize(n); api != want[0] || auth != want[1] {
+			t.Errorf("split(%d) = api %d, auth %d; want %v", n, api, auth, want)
+		}
+	}
+}
 
 func TestAddTokensToResponse(t *testing.T) {
 	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"iat":1000,"exp":1900}`))
