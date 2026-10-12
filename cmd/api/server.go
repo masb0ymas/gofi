@@ -52,6 +52,9 @@ func newServer(app *app.Application) (*fiber.App, error) {
 		TrustProxy:       len(proxies) > 0,
 		TrustProxyConfig: fiber.TrustProxyConfig{Proxies: proxies},
 		ProxyHeader:      fiber.HeaderXForwardedFor,
+		// Without it c.IP() is the raw header, which a client prefixes with
+		// whatever it likes, so every request gets a fresh rate-limit key.
+		EnableIPValidation: true,
 		// Bound how long a slow client can hold a connection.
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,

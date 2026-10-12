@@ -19,6 +19,7 @@ import (
 	bearerplugin "github.com/Authula/authula/plugins/bearer"
 	emailplugin "github.com/Authula/authula/plugins/email"
 	emailpasswordplugin "github.com/Authula/authula/plugins/email-password"
+	emailpasswordconstants "github.com/Authula/authula/plugins/email-password/constants"
 	emailpasswordplugintypes "github.com/Authula/authula/plugins/email-password/types"
 	emailplugintypes "github.com/Authula/authula/plugins/email/types"
 	jwtplugin "github.com/Authula/authula/plugins/jwt"
@@ -54,8 +55,14 @@ var (
 // and the session check stands down once it has identified the caller.
 var authRouteMappings = []authulamodels.RouteMapping{
 	{
-		Paths:   []string{"GET:/me", "POST:/sign-out", "POST:/token"},
+		Paths:   []string{"GET:/me", "POST:/sign-out"},
 		Plugins: []string{bearerAuthOptional, sessionAuth},
+	},
+	// Cookie only: with a bearer token, a stolen 15-minute access token could
+	// be swapped for fresh pairs for as long as its 7-day session lives.
+	{
+		Paths:   []string{"POST:/token"},
+		Plugins: []string{sessionAuth},
 	},
 	{
 		Paths: []string{
@@ -116,6 +123,15 @@ func mirrorUser(repo *repositories.UserRepository) func(*authulamodels.User) err
 			Image: u.Image,
 		})
 	}
+}
+
+// refuseUnverified stops a password sign-in until the email is verified. It
+// answers like a wrong password, so it does not reveal which addresses exist.
+func refuseUnverified(_ context.Context, u *authulamodels.User) error {
+	if !u.EmailVerified {
+		return emailpasswordconstants.ErrInvalidCredentials
+	}
+	return nil
 }
 
 // tokenLifetime reads the issued-at and expiry times (Unix seconds) from a
@@ -267,6 +283,9 @@ func (i tokenIssuer) route() authulamodels.Route {
 // verifications) into authSchema of the app database when it starts, and
 // mirror runs after every user it creates or updates.
 func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *slog.Logger) *authula.Auth {
+	// Assigned below; the hooks that use it only run once requests arrive.
+	var auth *authula.Auth
+
 	userHooks := &authulamodels.ServiceHooks[authulamodels.User]{}
 	userHooks.RegisterAfterCreate(mirror)
 	userHooks.RegisterAfterUpdate(mirror)
@@ -286,8 +305,8 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 		authulaconfig.WithDatabase(authulamodels.DatabaseConfig{
 			Provider:     "postgres",
 			URL:          authDSN(cfg.DB.DSN),
-			MaxOpenConns: cfg.DB.MaxOpenConns,
-			MaxIdleConns: cfg.DB.MaxIdleConns,
+			MaxOpenConns: authPoolSize(cfg.DB.MaxOpenConns),
+			MaxIdleConns: authPoolSize(cfg.DB.MaxIdleConns),
 		}),
 		authulaconfig.WithLogger(authulamodels.LoggerConfig{Level: logLevel, Logger: logger}),
 		authulaconfig.WithSession(authulamodels.SessionConfig{
@@ -320,7 +339,7 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 		logger.Warn("google sign-in disabled: google-client-id is not set")
 	}
 
-	auth := authula.New(&authula.AuthConfig{
+	auth = authula.New(&authula.AuthConfig{
 		Config: authConfig,
 		Plugins: []authulamodels.Plugin{
 			// Registered first: the email-based plugins look up its mailer.
@@ -342,14 +361,29 @@ func newAuth(cfg config.Config, mirror func(*authulamodels.User) error, logger *
 			// order, and the bearer check has to precede the session one.
 			bearerplugin.New(bearerplugin.BearerPluginConfig{Enabled: true}),
 			sessionplugin.New(sessionplugin.SessionPluginConfig{Enabled: true}),
+			// RequireEmailVerification only sends the email; it lets an
+			// unverified user sign in. AutoSignIn off and the BeforeSignIn hook
+			// stop anyone holding a session for someone else's address, which
+			// Google and magic-link sign-in would later attach to by email.
 			emailpasswordplugin.New(emailpasswordplugintypes.EmailPasswordPluginConfig{
 				Enabled:                  true,
 				MinPasswordLength:        8,
 				MaxPasswordLength:        128,
 				RequireEmailVerification: true,
-				AutoSignIn:               true,
+				AutoSignIn:               false,
 				SendEmailOnSignUp:        true,
 				PasswordResetExpiresIn:   time.Hour,
+				ServiceHooks: &emailpasswordplugintypes.EmailPasswordServiceHooksConfig{
+					SignIn: &emailpasswordplugintypes.SignInServiceHooksConfig{
+						BeforeSignIn: refuseUnverified,
+					},
+					// A reset password must also lock out whoever stole the old one.
+					PasswordChange: &emailpasswordplugintypes.PasswordChangeServiceHooksConfig{
+						AfterChangePassword: func(ctx context.Context, u *authulamodels.User) error {
+							return auth.CoreServices().SessionService.DeleteAllByUserID(ctx, u.ID)
+						},
+					},
+				},
 			}),
 			magiclinkplugin.New(magiclinkplugintypes.MagicLinkPluginConfig{
 				Enabled:   true,

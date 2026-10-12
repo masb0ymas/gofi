@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -47,6 +48,9 @@ func TestIntegration(t *testing.T) {
 			Port:   8080,
 			Name:   "gofi-test",
 			Secret: "0123456789abcdef0123456789abcdef",
+			// Fiber's test connection comes from 0.0.0.0; trusting it lets the
+			// test send X-Forwarded-For the way a reverse proxy would.
+			TrustedProxies: "0.0.0.0",
 		},
 		DB: config.ConfigDB{DSN: dsn, MaxOpenConns: 5, MaxIdleConns: 5},
 		Auth: config.ConfigAuth{
@@ -223,21 +227,34 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// A session without tokens can get a pair: by signing in again, or from
-	// POST /token with the cookie or a bearer token.
+	// POST /token with the session cookie.
 	if status, out := call(http.MethodPost, "/v1/auth/email-password/sign-in", "", map[string]string{"email": superEmail, "password": superPass}, "Cookie", superCookie); status != http.StatusOK || out["access_token"] == nil || out["refresh_token"] == nil {
 		t.Fatalf("repeated sign in: %d %v", status, out)
 	}
-	for _, headers := range [][]string{{"Cookie", superCookie}, {"Authorization", "Bearer " + superToken}} {
-		status, out := call(http.MethodPost, "/v1/auth/token", "", nil, headers...)
-		if status != http.StatusOK || out["access_token"] == nil || out["refresh_token"] == nil || out["expires_in"] == nil {
-			t.Fatalf("token with %s: %d %v", headers[0], status, out)
-		}
-		if status, out := call(http.MethodPost, "/v1/auth/token/refresh", "", map[string]any{"refresh_token": out["refresh_token"]}); status != http.StatusOK {
-			t.Fatalf("refresh of an issued token: %d %v", status, out)
-		}
+	status, out := call(http.MethodPost, "/v1/auth/token", "", nil, "Cookie", superCookie)
+	if status != http.StatusOK || out["access_token"] == nil || out["refresh_token"] == nil || out["expires_in"] == nil {
+		t.Fatalf("token with the cookie: %d %v", status, out)
+	}
+	if status, out := call(http.MethodPost, "/v1/auth/token/refresh", "", map[string]any{"refresh_token": out["refresh_token"]}); status != http.StatusOK {
+		t.Fatalf("refresh of an issued token: %d %v", status, out)
+	}
+	// An access token cannot mint new pairs, or a stolen one would outlive its 15 minutes.
+	if status, _ := call(http.MethodPost, "/v1/auth/token", superToken, nil); status != http.StatusUnauthorized {
+		t.Fatalf("token with a bearer only: %d, want 401", status)
 	}
 	if status, _ := call(http.MethodPost, "/v1/auth/token", "", nil); status != http.StatusUnauthorized {
 		t.Fatalf("token without a session: %d, want 401", status)
+	}
+
+	// Signing up does not sign in, and an unverified address cannot sign in:
+	// otherwise anyone could hold a session for someone else's email.
+	const strangerEmail = "stranger@example.com"
+	status, out = call(http.MethodPost, "/v1/auth/email-password/sign-up", "", map[string]string{"name": "Stranger", "email": strangerEmail, "password": "stranger-password"})
+	if status != http.StatusCreated || out["access_token"] != nil || cookies != "" {
+		t.Fatalf("sign up: %d %v, cookies %q; want 201 without a session", status, out, cookies)
+	}
+	if status, out := call(http.MethodPost, "/v1/auth/email-password/sign-in", "", map[string]string{"email": strangerEmail, "password": "stranger-password"}); status != http.StatusUnauthorized {
+		t.Fatalf("unverified sign in: %d %v, want 401", status, out)
 	}
 	userToken := signIn(userEmail, userPass)["access_token"].(string)
 
@@ -297,5 +314,29 @@ func TestIntegration(t *testing.T) {
 	}
 	if status, _ := call(http.MethodPost, "/v1/categories", superToken, category); status != http.StatusUnauthorized {
 		t.Fatalf("create after sign out: %d, want 401", status)
+	}
+
+	// Rotating SUPER_USER ends the sessions opened with the old password.
+	superToken = signIn(superEmail, superPass)["access_token"].(string)
+	superCookie = cookies
+	superUser.Password = "the-rotated-password"
+	if err := superUser.Seed(); err != nil {
+		t.Fatalf("rotate: %v", err)
+	}
+	for _, headers := range [][]string{{"Cookie", superCookie}, {"Authorization", "Bearer " + superToken}} {
+		if status, _ := call(http.MethodGet, "/v1/auth/me", "", nil, headers...); status != http.StatusUnauthorized {
+			t.Fatalf("me with %s after rotation: %d, want 401", headers[0], status)
+		}
+	}
+
+	// Behind a proxy the limiter keys on the client the proxy saw, not on
+	// the header prefix the client chose, so changing it does not reset the count.
+	status = 0
+	for i := range authRateLimit + 1 {
+		status, _ = call(http.MethodPost, "/v1/auth/email-password/sign-in", "", map[string]string{"email": "nobody@example.com", "password": "wrong-password"},
+			"X-Forwarded-For", fmt.Sprintf("10.0.0.%d, 203.0.113.9", i))
+	}
+	if status != http.StatusTooManyRequests {
+		t.Fatalf("sign in %d times with spoofed prefixes: last %d, want 429", authRateLimit+1, status)
 	}
 }

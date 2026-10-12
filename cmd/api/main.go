@@ -38,7 +38,9 @@ func run() error {
 		}
 	}
 
-	db, err := connectDB(&cfg.DB)
+	apiDB := cfg.DB
+	apiDB.MaxOpenConns, apiDB.MaxIdleConns = apiPoolSize(cfg.DB.MaxOpenConns), apiPoolSize(cfg.DB.MaxIdleConns)
+	db, err := connectDB(&apiDB)
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)
 	}
