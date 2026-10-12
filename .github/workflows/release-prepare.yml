@@ -33,6 +33,22 @@ permissions:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    # cmd/api's integration test (auth, roles, CSRF) skips itself without a
+    # database, so the gate provides one.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gofi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gofi_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -52,9 +68,12 @@ jobs:
 
       - name: Test
         run: go test ./...
+        env:
+          TEST_DB_DSN: postgres://postgres:postgres@localhost:5432/gofi_test?sslmode=disable
 
+      # Pinned: this job holds a token that can write to the repository.
       - name: Scan dependencies
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -81,7 +100,8 @@ jobs:
           echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Open release PR
-        uses: peter-evans/create-pull-request@v7
+        # Third-party action with write access, pinned to a commit: a tag can be moved.
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
         with:
           branch: release/v${{ steps.bump.outputs.version }}
           title: "chore: release v${{ steps.bump.outputs.version }}"
