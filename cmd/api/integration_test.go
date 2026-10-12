@@ -266,6 +266,26 @@ func TestIntegration(t *testing.T) {
 		t.Fatalf("list: %d %v", status, out)
 	}
 
+	// Idempotent create: the same key replays the first answer instead of
+	// inserting a second row, and the reply is marked as replayed.
+	const idempotencyKey = "8e03978e-40d5-43e8-bc93-6894a57f9324"
+	retried := map[string]string{"name": "Retried"}
+	firstStatus, firstOut := call(http.MethodPost, "/v1/categories", superToken, retried, "X-Idempotency-Key", idempotencyKey)
+	if firstStatus != http.StatusCreated {
+		t.Fatalf("idempotent create: %d %v", firstStatus, firstOut)
+	}
+	retryStatus, retryOut := call(http.MethodPost, "/v1/categories", superToken, retried, "X-Idempotency-Key", idempotencyKey)
+	if retryStatus != firstStatus || retryOut["data"].(map[string]any)["id"] != firstOut["data"].(map[string]any)["id"] {
+		t.Fatalf("idempotent retry: %d %v, want the first answer %v", retryStatus, retryOut, firstOut)
+	}
+	if status, out := call(http.MethodGet, "/v1/categories?search=Retried", "", nil); status != http.StatusOK || len(out["data"].([]any)) != 1 {
+		t.Fatalf("the retry inserted a second row: %d %v", status, out)
+	}
+	// A malformed key is refused before the write is attempted.
+	if status, _ := call(http.MethodPost, "/v1/categories", superToken, map[string]string{"name": "Bad"}, "X-Idempotency-Key", "not-a-uuid"); status != http.StatusBadRequest {
+		t.Fatalf("malformed idempotency key: %d, want 400", status)
+	}
+
 	// A browser request from another site is refused before it is authenticated.
 	if status, _ := call(http.MethodPost, "/v1/categories", superToken, category, "Sec-Fetch-Site", "cross-site", "Origin", "https://evil.example"); status != http.StatusForbidden {
 		t.Fatalf("cross-site create: %d, want 403", status)

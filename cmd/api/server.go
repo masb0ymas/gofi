@@ -91,6 +91,9 @@ func newServer(app *app.Application) (*fiber.App, error) {
 			Next:             func(c fiber.Ctx) bool { return strings.HasPrefix(c.Path(), authBasePath) },
 			AllowOrigins:     origins,
 			AllowCredentials: true,
+			// Without this a browser client cannot read the marker that says a
+			// write was replayed instead of applied (see middlewares.Idempotency).
+			ExposeHeaders: []string{middlewares.HeaderIdempotentReplayed},
 		}))
 	}
 

@@ -80,6 +80,38 @@ The API accepts either the cookie or `Authorization: Bearer <access_token>`.
   refused with 403 unless the origin is in `CORS_ALLOWED_ORIGINS`. Clients
   that are not browsers are unaffected.
 
+## Idempotent writes
+
+A write to `/v1/categories` accepts an idempotency key, so a retried request
+does not apply twice. Send the key on the first attempt and repeat it verbatim
+on every retry:
+
+```sh
+curl -X POST http://localhost:8080/v1/categories \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H "X-Idempotency-Key: 8e03978e-40d5-43e8-bc93-6894a57f9324" \
+  -d '{"name":"Books"}'
+```
+
+- The key is a UUID. `Idempotency-Key`, the name the IETF draft standardises,
+  is accepted as well. A missing key means the write runs normally, and a key
+  that is not a UUID is refused with 400.
+- The first request runs the handler and stores the answer for 30 minutes; a
+  retry within that window is answered from the store, with the same status and
+  body and `Idempotent-Replayed: true` (browser clients read it because it is
+  in the CORS expose list). A new key starts a new write.
+- The key is scoped to the caller and the route, so the same key cannot replay
+  another user's response or a response from a different endpoint.
+- Only successful responses are stored. A retry after 401, 403, 404, 409 or 422
+  runs the handler again, so a failed write stays retryable.
+- Safe methods (`GET`, `HEAD`, `OPTIONS`) are never deduplicated, with or
+  without a key.
+
+`ponytail`: the store and its lock are in this process, so each replica
+deduplicates on its own. Give the middleware shared storage (Redis) when there
+is more than one instance; the keys are already opaque, so nothing else changes.
+
 ## Docker
 
 ```sh
