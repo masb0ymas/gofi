@@ -5,3 +5,13 @@
 
 .env
 .ignore
+.trail/
+.adal/
+.cursor/
+.gemini/
+.grok/
+.kiro/
+
+GEMINI.md
+opencode.json
+copilot-*
