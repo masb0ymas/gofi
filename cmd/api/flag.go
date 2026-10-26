@@ -135,6 +135,11 @@ func validateFlag(cfg *config.Config) {
 		log.Fatalf("env %s must not be set: Authula uses db-dsn", authulaenv.EnvDatabaseURL)
 	}
 
+	// Same for the secret: it would replace app-secret unchecked.
+	if os.Getenv(authulaenv.EnvSecret) != "" {
+		log.Fatalf("env %s must not be set: Authula uses app-secret", authulaenv.EnvSecret)
+	}
+
 	if cfg.App.Port <= 0 || cfg.App.Port > 65535 {
 		log.Fatalf("flag port must be between 1 and 65535, got %d", cfg.App.Port)
 	}
